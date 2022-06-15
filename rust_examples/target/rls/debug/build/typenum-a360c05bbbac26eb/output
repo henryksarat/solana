@@ -1,2 +1,0 @@
-cargo:rustc-env=TYPENUM_BUILD_CONSTS=/Users/henryksarat/Documents/Coding/solana/solana/rust_examples/target/rls/debug/build/typenum-a360c05bbbac26eb/out/consts.rs
-cargo:rustc-env=TYPENUM_BUILD_OP=/Users/henryksarat/Documents/Coding/solana/solana/rust_examples/target/rls/debug/build/typenum-a360c05bbbac26eb/out/op.rs

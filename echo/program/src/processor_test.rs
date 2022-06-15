@@ -73,13 +73,6 @@ mod test {
             "hi there0000000"
         );
 
-        // let mut data = vec![
-        //     0; 
-        //     mem::size_of::<u64>()+
-        //     mem::size_of::<u64>()+
-        //     (arr.len())
-        // ];
-
         Processor::process_instruction(&program_id, &accounts, &instruction_data).unwrap();
 
         assert_eq!(
