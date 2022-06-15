@@ -177,7 +177,7 @@ impl Processor {
                 assert_with_msg(
                     auth_key == *authority.key,
                     ProgramError::InvalidSeeds,
-                    "Invalid PDA seeds for authority",
+                    "Invalid PDA seeds for authority.",
                 )?;
 
                 let s = match str::from_utf8(&instruction_data[1..]) {

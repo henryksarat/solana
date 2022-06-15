@@ -107,8 +107,6 @@ mod test {
                 .message,
             "Empty Buffer..."
         );
-
-        // assert_eq!(false, true);
     }
 
     #[test]
