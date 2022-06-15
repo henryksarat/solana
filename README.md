@@ -1,5 +1,18 @@
 # Henryk's Solana repo
 
+### Folders
+
+#### echo
+This folder contains code for the following specifiction: https://github.com/henryksarat/solana/blob/main/echo/Echo_Program_Specification.pdf
+
+This was part of the Solana Bootcamp that can be found here: https://www.youtube.com/watch?v=O0uhZEfVPt8&list=PLilwLeBwGuK7Z2dXft_pmLZ675fuPgkA0&index=1
+
+#### rust_examples
+
+Sample rust examples for myself while learning the language
+
+## Everything below will be for whatever is in the echo folder
+
 ### Environment Setup
 1. Install Rust from https://rustup.rs/
 2. Install Solana from https://docs.solana.com/cli/install-solana-cli-tools#use-solanas-install-tool
