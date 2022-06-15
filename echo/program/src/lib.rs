@@ -4,5 +4,4 @@ pub mod instruction;
 pub mod processor;
 pub mod state;
 pub mod processor_test;
-pub mod lifetime_example;
 pub mod padder;

@@ -130,6 +130,7 @@ impl Processor {
                     ],
                     _program_id,
                 );
+                msg!("here we are");
 
                 // Note that this authority key is derived and was done
                 // so outside of this smart contract as well and passed
@@ -170,11 +171,12 @@ impl Processor {
                     &[echo_message.buffer_seed], 
                     &[echo_message.bump_seed]
                 ];
+                msg!("here we are again1111");
                 let auth_key = Pubkey::create_program_address(authority_seeds, _program_id)?;
-
+                msg!("here we are again");
                 assert_with_msg(
                     auth_key == *authority.key,
-                    ProgramError::InvalidArgument,
+                    ProgramError::InvalidSeeds,
                     "Invalid PDA seeds for authority",
                 )?;
 

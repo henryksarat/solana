@@ -20,6 +20,20 @@ cargo test-bpf --manifest-path=./counter/Cargo.toml
 ```
 
 ### Dev loop
-cd ~/solana-bootcamp-lectures/echo/counter
+solana config set --url devnet
+cd ~/solana/echo
+cargo test-bpf --manifest-path=./program/Cargo.toml
+cd ~/solana/echo/program
 cargo build-bpf
-solana program deploy /Users/henryksarat/Documents/Coding/solana/solana-bootcamp-lectures/echo/counter/target/deploy/counter.so
+whatever the output is to deploy and save this PROGRAM ID for the "Execute JS" section below
+
+### Execute JS
+cd js
+solana-keygen new -o newkeynow
+node index.js ${program_id from deployment} ${execution_numer} #{writable_address} #{secret_key_file_name}
+
+# example:
+# initialize Auth Echo
+node index.js gRnNX6fUiJV2pXcyNVnZj7eAmEps2CJUcsyq6uzWYts 2 newkeynow
+# get the writable address to now use
+node index.js gRnNX6fUiJV2pXcyNVnZj7eAmEps2CJUcsyq6uzWYts 3 newkeynow AdTE6qDsRNCP8QqfkPhiT3rGCjno5ZjQ7C4vgyZ1fw4Y

@@ -448,6 +448,128 @@ mod test {
     }
 
     #[test]
+    fn test_echo_program_initialize_auth_echo_and_fail_to_update_with_different_auth() {
+        let mut arr = String::into_bytes(String::from("000000000000000"));
+
+        let program_id = Pubkey::default();
+
+        let writable_account_key = Pubkey::default();
+        let owner_key = Pubkey::default();
+        
+        let mut lamports_main_writable_account = 0;
+        let mut lamports_owner = 0;
+
+        // We add the length of the buffer that will store the length of the data
+        let mut data_writable_account = vec![
+            0; 
+            mem::size_of::<u64>()+
+            mem::size_of::<u8>()+
+            mem::size_of::<u8>()+
+            mem::size_of::<u64>()+
+            (arr.len())
+        ];
+
+        // We remove the length of the buffer to just know the data portion size
+        let expected_length_of_data_only = data_writable_account.len() - 4;
+
+        let mut data_main_owner = vec![0];
+        
+        let mut lamports_authority_account = 0;
+        let mut data_athority_account = vec![0];
+
+        let seed = &[100];
+        
+        let mut instruction_data = vec![0; mem::size_of::<u8>()+ mem::size_of::<u8>()+mem::size_of::<String>()];
+        instruction_data[0] = 2;
+        instruction_data[1] = seed[0];
+
+        let (authority_key, _) = Pubkey::find_program_address(
+            &[
+                b"authority",
+                owner_key.as_ref(), 
+                seed
+            ],
+            &program_id,
+        );
+
+        let (owner_account, account_main_writable, account_authority) = create_and_return_three_account_infos(
+            &owner_key, 
+            &mut lamports_owner, 
+            &mut data_main_owner,
+            &writable_account_key,
+            &mut lamports_main_writable_account,
+            &mut data_writable_account,
+            &authority_key,
+            &mut lamports_authority_account,
+            &mut data_athority_account,
+        );
+
+        let mut accounts = vec![
+            account_main_writable, 
+            owner_account, 
+            account_authority
+        ];
+        
+        Processor::process_instruction(&program_id, &accounts, &instruction_data).unwrap();
+
+        let length = u32::from_le_bytes(accounts[0].data.borrow()[0..4].try_into().unwrap()) as usize;
+        
+        assert_eq!(length, expected_length_of_data_only);
+
+        let length_of_data_ending_after_offset_added = length + 4;
+        assert_eq!(
+            AuthorizedEchoMessage::try_from_slice(
+                &accounts[0].data.borrow()[4..length_of_data_ending_after_offset_added])
+                .unwrap()
+                .call_count,
+            0
+        );
+
+        assert_eq!(
+            AuthorizedEchoMessage::try_from_slice(
+                &accounts[0].data.borrow()[4..length_of_data_ending_after_offset_added])
+                .unwrap()
+                .message,
+            "000000000000000"
+        );
+
+        arr = String::into_bytes(String::from("USDEUR:0.96"));
+
+        let mut new_instruction_data = vec![0; mem::size_of::<u8>()+ mem::size_of::<u8>()+mem::size_of::<String>()];
+        new_instruction_data[0] = 3;
+
+        copy_and_truncate(&mut new_instruction_data, arr, 1);
+        
+        let new_owner_key_of_someone_else = Pubkey::new_from_array(
+            [
+                1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                0, 0, 0, 0, 0, 0, 0, 0
+            ]
+        );
+
+        let mut new_lamports = 0;
+        let mut new_data_authority_account = vec![0];
+        let new_owner_account = AccountInfo::new(
+            &new_owner_key_of_someone_else,
+            true,
+            false,
+            &mut new_lamports,
+            &mut new_data_authority_account,
+            &new_owner_key_of_someone_else,
+            false,
+            Epoch::default(),
+        );
+
+        accounts[1] = new_owner_account;
+
+        let result = Processor::process_instruction(&program_id, &accounts, &new_instruction_data);
+
+        let expected = Err(ProgramError::InvalidSeeds);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
     fn test_auth_echo_program_initialize_then_verify_regular_echo_functions_fail() {
         let mut arr = String::into_bytes(String::from("000000000000000"));
 
