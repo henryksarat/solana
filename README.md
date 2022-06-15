@@ -52,10 +52,10 @@ A PROGRAM ID for the "Execute JS" section below will be printed to the scren.
 ### Execute JS
 
 Execution number:
--0 - Echo message without auth
--1 - Clear out echo message
--2 - Initilize echo message with specified auth
--3 - Update echo message with the auth that was initilized
+- 0: Echo message without auth
+- 1: Clear out echo message
+- 2: Initilize echo message with specified auth
+- 3: Update echo message with the auth that was initilized
 
 ```
 cd js
