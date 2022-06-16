@@ -16,6 +16,8 @@ const { deserialize, serialize } = require('borsh');
 class Assignable {
   constructor(properties) {
     Object.keys(properties).forEach((key) => {
+      console.log("saving key=" + key)
+      console.log("saving value=" + properties[key])
       this[key] = properties[key];
     });
   }
@@ -58,12 +60,6 @@ class DataLength extends Assignable {
   }
 }
 
-class EchoMessageSubmission extends Assignable {
-  static decode(bytes) {
-    return deserialize(SCHEMA, DataLength, bytes);
-  }
-}
-
 const SCHEMA = new Map([
   [
     EchoMessage,
@@ -71,16 +67,6 @@ const SCHEMA = new Map([
       kind: 'struct',
       fields: [
         ['call_count', 'u64'],
-        ['echo_message', 'string'],
-      ],
-    },
-  ],
-  [
-  EchoMessageSubmission,
-    {
-      kind: 'struct',
-      fields: [
-        ['instruction', 'u64'],
         ['echo_message', 'string'],
       ],
     },
@@ -104,12 +90,14 @@ const main = async () => {
   var args = process.argv.slice(2);
   // args[0]: Program ID
   // args[1]: Is Auth Echo
-  // args[2] (Optional): Counter buffer account
-  // args[3] (Optional): Payer
+  // args[2] (Optional): message
+  // args[3] (Optional): Writable buffer account
+  // args[4] (Optional): Payer
   const programId = new PublicKey(args[0])
   const instruction = args[1]
-  const locationOfKey = args[2]
-  const accountToWriteTo = args[3]
+  const message = args[2] ? args[2] : "default message"
+  const locationOfKey = args[3]
+  const accountToWriteTo = args[4]
 
   console.log('account='+accountToWriteTo)
   console.log(programId.toBase58());
@@ -137,10 +125,10 @@ const main = async () => {
   let tx = new Transaction();
   let signers = [feePayer];
   if (accountToWriteTo != undefined) {
-    console.log("Found counter address");
+    console.log("Found writable address");
     counterKey = new PublicKey(accountToWriteTo);
   } else {
-    console.log("Generating new counter address");
+    console.log("Generating new writable address");
     let createIx = SystemProgram.createAccount({
       fromPubkey: feePayer.publicKey,
       newAccountPubkey: counterKey,
@@ -156,7 +144,6 @@ const main = async () => {
   }
 
   let buffer_seed = 67
-  let message = "4444"
   var data = create_data(instruction, buffer_seed, message)
 
   const authKey = (await PublicKey.findProgramAddress(
@@ -209,7 +196,7 @@ const main = async () => {
     let output = EchoMessage.decode(data)
     console.log("Call count: ", output.call_count.toNumber())
     console.log("Message: ", output.echo_message)
-    console.log("Counter Key: ", counterKey.toBase58());
+    console.log("Writable Key: ", counterKey.toBase58());
   }
   
   if (instruction == 2 || instruction == 3) {
@@ -217,7 +204,7 @@ const main = async () => {
     console.log("Call count: ", output.call_count)
     console.log("Buffer Seed: ", output.buffer_seed)
     console.log("Message: ", output.message)
-    console.log("Counter Key: ", counterKey.toBase58());
+    console.log("Writable Key: ", counterKey.toBase58());
   }
 };
 
@@ -254,8 +241,7 @@ function auth_echo_message_initialize(buffer_seed, message) {
   let data = Buffer.alloc(allocateStruct.layout.span);
   let layoutFields = Object.assign({instruction: allocateStruct.index}, params);
   allocateStruct.layout.encode(layoutFields, data)
-  data = Buffer.concat([data, Buffer.from(message)]);
-  return data
+  return Buffer.concat([data, Buffer.from(message)]);
 } 
 
 function auth_echo_message(message) {
@@ -280,9 +266,20 @@ function echo_message(message) {
     ])
   };
   let data = Buffer.alloc(allocateStruct.layout.span);
+  
   let layoutFields = Object.assign({instruction: allocateStruct.index});
   allocateStruct.layout.encode(layoutFields, data)
+  
   data = Buffer.concat([data, Buffer.from(message)]);
+
+  // Keep this around to let myself know encoding didnt work as expected
+  // The encoded data was not in the byte order I expected
+  // I might look into this more in the future but not right now
+  // var encoded = new EchoMessageSubmission({
+  //   "instruction": 0,
+  //   "echo_message": "hith"
+  // }).encode();
+
   return data
 }
 
@@ -296,6 +293,7 @@ function echo_message_delete() {
   let data = Buffer.alloc(allocateStruct.layout.span);
   let layoutFields = Object.assign({instruction: allocateStruct.index});
   allocateStruct.layout.encode(layoutFields, data)
+
   return data
 }
 
