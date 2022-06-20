@@ -1,7 +1,7 @@
 [features]
 seeds = false
 [programs.localnet]
-booth_exchange = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+booth_exchange = "FS4tM81VusiHgaKe7Ar7X1fJesJCZho5CCWFELWcpckF"
 
 [registry]
 url = "https://anchor.projectserum.com"

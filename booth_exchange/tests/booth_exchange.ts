@@ -81,10 +81,17 @@ describe("booth_exchange", () => {
     // Call the "SendTweet" instruction.
     const key = anchor.AnchorProvider.env().wallet.publicKey;
     const tweet = anchor.web3.Keypair.generate();
-    await program.methods.create('euro').accounts({
+    let mintA = await createMint(100)
+    let mintB = await createMint(250)
+
+    await program.methods.create('A:B,1:2').accounts({
             dataLocation: tweet.publicKey,
             admin: key,
             systemProgram: anchor.web3.SystemProgram.programId,
+            mintA: mintA[0].publicKey,
+            mintB: mintB[0].publicKey,
+            vaultA: mintA[1],
+            vaultB: mintB[1]
     }).signers([
       tweet
     ]).rpc();
@@ -95,7 +102,12 @@ describe("booth_exchange", () => {
     console.log(tweetAccount);
     
     assert.equal(tweetAccount.admin.toBase58(), key.toBase58());
-    assert.equal(tweetAccount.content, 'euro');
+    assert.equal(tweetAccount.content, 'A:B,1:2');
     assert.equal(tweetAccount.callCount, 23);
+    assert.equal(tweetAccount.mintA.toBase58(), mintA[0].publicKey.toBase58());
+    assert.equal(tweetAccount.mintB.toBase58(), mintB[0].publicKey.toBase58());
+
+    assert.equal(tweetAccount.vaultA.toBase58(), mintA[1].toBase58());
+    assert.equal(tweetAccount.vaultB.toBase58(), mintB[1].toBase58());
   });
 });
