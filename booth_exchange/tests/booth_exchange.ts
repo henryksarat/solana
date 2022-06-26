@@ -1,5 +1,5 @@
 import * as anchor from "@project-serum/anchor";
-import { Program } from "@project-serum/anchor";
+import { Program, } from "@project-serum/anchor";
 import { BoothExchange } from "../target/types/booth_exchange";
 import {
   TOKEN_PROGRAM_ID,
@@ -8,14 +8,19 @@ import {
   getAssociatedTokenAddress,
   createInitializeMintInstruction,
 } from "@solana/spl-token"; 
+import { PublicKey } from "@solana/web3.js";
 import { assert } from "chai";
+
 const BN = require("bn.js");
 
 describe("booth_exchange", () => {
-  // Configure the client to use the local cluster.
-  anchor.setProvider(anchor.AnchorProvider.env());
+//   // Configure the client to use the local cluster.
+
   const key = anchor.AnchorProvider.env().wallet.publicKey;
   const program = anchor.workspace.BoothExchange as Program<BoothExchange>;
+
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
 
   it("Is initialized!", async () => {
     // Add your test here.
@@ -77,37 +82,67 @@ describe("booth_exchange", () => {
     return [mintKey, associatedTokenAccount]
   }
 
+  
+
   it('can crate and exchange booth', async () => {
     // Call the "SendTweet" instruction.
     const key = anchor.AnchorProvider.env().wallet.publicKey;
-    const tweet = anchor.web3.Keypair.generate();
+   
     let mintA = await createMint(100)
     let mintB = await createMint(250)
+    
+    let [theKey, theBump] = (await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("ebpda"),
+        key.toBuffer(),
+        mintA[0].publicKey.toBuffer(),
+        mintB[0].publicKey.toBuffer()
+      ],
+      program.programId
+    ));
 
-    await program.methods.create('A:B,1:2').accounts({
-            dataLocation: tweet.publicKey,
+    await program.methods.create("A:B,1:2").accounts({
             admin: key,
             systemProgram: anchor.web3.SystemProgram.programId,
             mintA: mintA[0].publicKey,
             mintB: mintB[0].publicKey,
             vaultA: mintA[1],
-            vaultB: mintB[1]
-    }).signers([
-      tweet
-    ]).rpc();
+            vaultB: mintB[1],
+            dataLocation: theKey
+    }).rpc();
     
-    // Fetch the account details of the created tweet.
-    const tweetAccount = await program.account.exchangeBooth.fetch(tweet.publicKey);
+    const tweetAccount = await program.account.exchangeBooth.fetch(theKey);
     console.log("tweet account=")
     console.log(tweetAccount);
     
     assert.equal(tweetAccount.admin.toBase58(), key.toBase58());
-    assert.equal(tweetAccount.content, 'A:B,1:2');
+    assert.equal(tweetAccount.programId.toBase58(), anchor.web3.SystemProgram.programId.toBase58());
+    assert.equal(tweetAccount.oracle, 'A:B,1:2');
     assert.equal(tweetAccount.callCount, 23);
     assert.equal(tweetAccount.mintA.toBase58(), mintA[0].publicKey.toBase58());
     assert.equal(tweetAccount.mintB.toBase58(), mintB[0].publicKey.toBase58());
 
     assert.equal(tweetAccount.vaultA.toBase58(), mintA[1].toBase58());
     assert.equal(tweetAccount.vaultB.toBase58(), mintB[1].toBase58());
+
+    assert.equal(tweetAccount.bump, theBump);
+  });
+
+  it('can create super simple account', async () => {
+    const data_location: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
+
+    const realAdminKey = anchor.AnchorProvider.env().wallet.publicKey;
+
+    await program.methods.superSimple().accounts({
+        admin: realAdminKey,
+        dataLocation: data_location.publicKey,
+      }).signers([
+        data_location
+      ]).rpc();
+      
+      
+    const tweetAccount = await program.account.superSimpleSave.fetch(data_location.publicKey);
+    
+    assert.equal(tweetAccount.callCount, 59);
   });
 });

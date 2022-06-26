@@ -4,6 +4,16 @@ use anchor_spl::token;
 
 declare_id!("FS4tM81VusiHgaKe7Ar7X1fJesJCZho5CCWFELWcpckF");
 
+
+pub fn assert_with_msg(statement: bool, err: ErrorCode, msg: &str) -> Result<()> {
+    if !statement {
+        msg!(msg);
+        Err(err.into())
+    } else {
+        Ok(())
+    }
+}
+
 #[program]
 pub mod booth_exchange {
     use super::*;
@@ -12,23 +22,29 @@ pub mod booth_exchange {
         Ok(())
     }
 
-    pub fn create(ctx: Context<ExchangeBoothAccounts>, data_to_store: String) -> Result<()> {
+    pub fn create(ctx: Context<ExchangeBoothAccounts>, oracle_data: String) -> Result<()> {
         msg!("in create!!");
-        let tweet: &mut Account<ExchangeBooth> = &mut ctx.accounts.data_location;
-        let author: &Signer = &ctx.accounts.admin;
+        
+        let tweet = &mut ctx.accounts.data_location;
+        
+        let admin: &Signer = &ctx.accounts.admin;
+        let system_program = &ctx.accounts.system_program.to_account_info();
         let mint_a = &ctx.accounts.mint_a.to_account_info();
         let mint_b = &ctx.accounts.mint_b.to_account_info();
         let vault_a = &ctx.accounts.vault_a.to_account_info();
         let vault_b = &ctx.accounts.vault_b.to_account_info();
-
+        
+        
         msg!(" in here!!");
-        tweet.admin = *author.key;
+        tweet.admin = *admin.key;
+        tweet.program_id = *system_program.key;
         tweet.mint_a = *mint_a.key;
         tweet.mint_b = *mint_b.key;
         tweet.vault_a = *vault_a.key;
         tweet.vault_b = *vault_b.key;
         tweet.call_count = 23;
-        tweet.content = data_to_store;
+        tweet.oracle = oracle_data;
+        tweet.bump = *ctx.bumps.get("data_location").unwrap();
 
         Ok(())
     }
@@ -51,26 +67,64 @@ pub mod booth_exchange {
         
         Ok(())
     }
+
+    pub fn super_simple(ctx: Context<SuperSimpleLengthAccounts>) -> Result<()> {
+        msg!("in super simple!!");
+        
+        let tweet = &mut ctx.accounts.data_location;
+        tweet.call_count = 59;
+
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
-pub struct ExchangeBoothAccounts<'info> {
-    #[account(init, payer = admin, space = ExchangeBooth::LEN)]
-    pub data_location: Account<'info, ExchangeBooth>,
+pub struct SuperSimpleLengthAccounts<'info> {
+    #[account(
+        init, 
+        payer = admin,
+        space = SuperSimpleSave::LEN
+    )]
+    pub data_location: Account<'info, SuperSimpleSave>,
 
     #[account(mut)]
     pub admin: Signer<'info>,
-    // #[account(address = system_program::ID)]
-    // pub system_program: AccountInfo<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction()]
+pub struct ExchangeBoothAccounts<'info> {
+    #[account(
+        init, 
+        payer = admin,
+        space = ExchangeBooth::LEN,
+        seeds=[
+            b"ebpda", 
+            admin.key().as_ref(), 
+            mint_a.key().as_ref(),
+            mint_b.key().as_ref()
+        ],
+        bump
+    )]
+    pub data_location: Account<'info, ExchangeBooth>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>, 
+    #[account(mut)]
+    pub admin_two: Signer<'info>, 
     pub system_program: Program<'info, System>,
 
     /// CHECK: Some token
     pub mint_a: UncheckedAccount<'info>,
+
     /// CHECK: Some token
     pub mint_b: UncheckedAccount<'info>,
     /// CHECK: Need to be able to update the amount
     #[account(mut)]
     pub vault_a: UncheckedAccount<'info>,
+
     /// CHECK: Need to be able to update the amount
     #[account(mut)]
     pub vault_b: UncheckedAccount<'info>
@@ -80,6 +134,7 @@ pub struct ExchangeBoothAccounts<'info> {
 pub struct Initialize {}
 
 #[account]
+// #[derive(Default)]
 pub struct ExchangeBooth {
     pub admin: Pubkey,
     pub mint_a: Pubkey, // Needed for decimal value
@@ -87,22 +142,22 @@ pub struct ExchangeBooth {
     pub vault_a: Pubkey, // Associated Token Account for A
     pub vault_b: Pubkey, // Associated Token Account for A
     pub call_count: i32,
-    pub content: String,
+    pub oracle: String,
+    pub program_id: Pubkey,
+    pub bump: u8,
 }
 
 #[account]
-pub struct Oracle {
-    pub admin: Pubkey,
-    pub content: String
+pub struct SuperSimpleSave {
+    pub call_count: i32,
 }
 
+const BUMP_LENGTH: usize = 1;
 const DISCRIMINATOR_LENGTH: usize = 8; // Required to store the type of account
 const PUBLIC_KEY_LENGTH: usize = 32; // [u8, 32] - u8 is 8 bits and that is 1 byte. So a total of 32 bytes
 const CALL_COUNT_LENGTH: usize = 4;
 const STRING_LENGTH_PREFIX: usize = 4; // Stores the size of the string.
 const MAX_TOPIC_LENGTH: usize = 15 * 4; // 15 char max. A UTF-8 encoded chracter can be between 1-4 bytes each
-const EXCHANGE_LENGTH: usize = 20 * 4; // 20 char max. A UTF-8 encoded chracter can be between 1-4 bytes each
-
 
 impl ExchangeBooth {
     const LEN: usize = DISCRIMINATOR_LENGTH
@@ -111,15 +166,14 @@ impl ExchangeBooth {
         + PUBLIC_KEY_LENGTH // MintB.
         + PUBLIC_KEY_LENGTH // Vault A.
         + PUBLIC_KEY_LENGTH // Vault B.
+        + PUBLIC_KEY_LENGTH // Program Id
+        + BUMP_LENGTH
         + CALL_COUNT_LENGTH
         + STRING_LENGTH_PREFIX + MAX_TOPIC_LENGTH; // Topic.
 }
 
-impl Oracle {
-    const LEN: usize = DISCRIMINATOR_LENGTH 
-    + PUBLIC_KEY_LENGTH
-    + STRING_LENGTH_PREFIX
-    + EXCHANGE_LENGTH;
+impl SuperSimpleSave {
+    const LEN: usize = DISCRIMINATOR_LENGTH + CALL_COUNT_LENGTH;
 }
 
 #[derive(Accounts)]
