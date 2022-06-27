@@ -1,6 +1,7 @@
 import * as anchor from "@project-serum/anchor";
 import { Program, } from "@project-serum/anchor";
 import { BoothExchange } from "../target/types/booth_exchange";
+import { TokenMinter } from "../target/types/token_minter";
 import {
   TOKEN_PROGRAM_ID,
   MINT_SIZE,
@@ -18,6 +19,7 @@ describe("booth_exchange", () => {
 
   const key = anchor.AnchorProvider.env().wallet.publicKey;
   const program = anchor.workspace.BoothExchange as Program<BoothExchange>;
+  const programTokenMinter = anchor.workspace.TokenMinter as Program<TokenMinter>;
 
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
@@ -30,21 +32,61 @@ describe("booth_exchange", () => {
 
   it("Mint a token", async () => {  
     let result = await createMint(12)
-    const minted = (await program.provider.connection.getParsedAccountInfo(result[1])).value.data.parsed.info.tokenAmount.amount;
+    const minted = (await programTokenMinter.provider.connection.getParsedAccountInfo(result[1])).value.data.parsed.info.tokenAmount.amount;
     assert.equal(minted, 12);
 
     let result2 = await createMint(20)
-    const minted2 = (await program.provider.connection.getParsedAccountInfo(result2[1])).value.data.parsed.info.tokenAmount.amount;
+    const minted2 = (await programTokenMinter.provider.connection.getParsedAccountInfo(result2[1])).value.data.parsed.info.tokenAmount.amount;
     assert.equal(minted2, 20);
 
     let result3 = await createMint(0)
-    const minted3 = (await program.provider.connection.getParsedAccountInfo(result3[1])).value.data.parsed.info.tokenAmount.amount;
+    const minted3 = (await programTokenMinter.provider.connection.getParsedAccountInfo(result3[1])).value.data.parsed.info.tokenAmount.amount;
     assert.equal(minted3, 0);
   });
 
+  it("Transfer to a new account",  async() => {
+    let result = await createMint(12)
+    const amountAdminATA = (await programTokenMinter.provider.connection.getParsedAccountInfo(result[1])).value.data.parsed.info.tokenAmount.amount;
+    assert.equal(amountAdminATA, 12);
+
+    const otherKey: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
+    let tomKeyATA = await getAssociatedTokenAddress(
+      result[0].publicKey,
+      otherKey.publicKey
+    );
+    const mint_tx2 = new anchor.web3.Transaction().add(
+      createAssociatedTokenAccountInstruction(
+        key, tomKeyATA, otherKey.publicKey, result[0].publicKey
+      )
+    );
+
+    await anchor.AnchorProvider.env().sendAndConfirm(mint_tx2, []);
+
+    const amountOther = (await programTokenMinter.provider.connection.getParsedAccountInfo(tomKeyATA)).value.data.parsed.info.tokenAmount.amount;
+    assert.equal(amountOther, 0);
+
+
+    var amount = new BN(3, 10);
+    await programTokenMinter.methods.transferToken(amount).accounts({
+      tokenProgram: TOKEN_PROGRAM_ID,
+      from: result[1],
+      to: tomKeyATA,
+      fromAuthority: key,
+    }).rpc();
+
+
+    const amountOtherAfterTransfer = (await programTokenMinter.provider.connection.getParsedAccountInfo(tomKeyATA)).value.data.parsed.info.tokenAmount.amount;
+    assert.equal(amountOtherAfterTransfer, 3);
+
+    const amountOfAdaminATAAfterTransfer = (await programTokenMinter.provider.connection.getParsedAccountInfo(result[1])).value.data.parsed.info.tokenAmount.amount;
+    assert.equal(amountOfAdaminATAAfterTransfer, 9);
+  })
+
   async function createMint(amount) {
     const mintKey: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
-      const lamports: number = await program.provider.connection.getMinimumBalanceForRentExemption(
+    
+    
+      const lamports: number = await programTokenMinter.provider.connection.getMinimumBalanceForRentExemption(
         MINT_SIZE
       );
       let associatedTokenAccount = await getAssociatedTokenAddress(
@@ -61,7 +103,7 @@ describe("booth_exchange", () => {
           lamports,
         }),
         createInitializeMintInstruction(
-          mintKey.publicKey, 0, key, key
+          mintKey.publicKey, 6, key, key
         ),
         createAssociatedTokenAccountInstruction(
           key, associatedTokenAccount, key, mintKey.publicKey
@@ -72,7 +114,7 @@ describe("booth_exchange", () => {
   
       var amount = new BN(amount, 10);
   
-      await program.methods.mintToken(amount).accounts({
+      await programTokenMinter.methods.mintToken(amount).accounts({
         mint: mintKey.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID,
         tokenAccount: associatedTokenAccount,
@@ -90,7 +132,9 @@ describe("booth_exchange", () => {
    
     let mintA = await createMint(100)
     let mintB = await createMint(250)
+
     
+
     let [theKey, theBump] = (await PublicKey.findProgramAddress(
       [
         anchor.utils.bytes.utf8.encode("ebpda"),

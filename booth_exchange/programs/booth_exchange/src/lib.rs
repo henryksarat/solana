@@ -23,8 +23,6 @@ pub mod booth_exchange {
     }
 
     pub fn create(ctx: Context<ExchangeBoothAccounts>, oracle_data: String) -> Result<()> {
-        msg!("in create!!");
-        
         let tweet = &mut ctx.accounts.data_location;
         
         let admin: &Signer = &ctx.accounts.admin;
@@ -34,8 +32,6 @@ pub mod booth_exchange {
         let vault_a = &ctx.accounts.vault_a.to_account_info();
         let vault_b = &ctx.accounts.vault_b.to_account_info();
         
-        
-        msg!(" in here!!");
         tweet.admin = *admin.key;
         tweet.program_id = *system_program.key;
         tweet.mint_a = *mint_a.key;
@@ -48,26 +44,7 @@ pub mod booth_exchange {
 
         Ok(())
     }
-
-    // Created this for each of testing
-    pub fn mint_token(ctx: Context<MintToken>, amount: u64) -> Result<()> {
-        // Create the MintTo struct for our context
-        let cpi_accounts = MintTo {
-            mint: ctx.accounts.mint.to_account_info(),
-            to: ctx.accounts.token_account.to_account_info(),
-            authority: ctx.accounts.authority.to_account_info(),
-        };
-        
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        // Create the CpiContext we need for the request
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-
-        // Execute anchor's helper function to mint tokens
-        token::mint_to(cpi_ctx, amount)?;
-        
-        Ok(())
-    }
-
+    
     pub fn super_simple(ctx: Context<SuperSimpleLengthAccounts>) -> Result<()> {
         msg!("in super simple!!");
         
