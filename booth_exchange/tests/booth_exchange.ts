@@ -72,18 +72,13 @@ describe("exchange_booth", () => {
     assert.equal(amountOfAdaminATAAfterTransfer, 9);
   })
 
-  it('can create and exchange booth', async () => {
+  it('can create an exchange booth', async () => {
     const key = anchor.AnchorProvider.env().wallet.publicKey;
    
     let mintA = await createMint(100)
     let mintB = await createMint(250)
 
     const admin_two: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
-    const admin_three: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
-
-    await program.provider.connection.requestAirdrop(admin_two.publicKey, 1000000000);
-    await program.provider.connection.requestAirdrop(admin_three.publicKey, 1000000000);
-    await program.provider.connection.requestAirdrop(key, 1000000000);
 
     let [theKey, theBump] = (await PublicKey.findProgramAddress(
       [
@@ -109,56 +104,6 @@ describe("exchange_booth", () => {
       ],
       program.programId
     ));
-
-    let vaultAATA = await getAssociatedTokenAddress(
-      mintA.mint.publicKey,
-      admin_two.publicKey
-    );
-
-    let vaultBATA = await getAssociatedTokenAddress(
-      mintB.mint.publicKey,
-      admin_two.publicKey
-    );
-
-    
-    const mint_tx2 = new anchor.web3.Transaction().add(
-      createAssociatedTokenAccountInstruction(
-        key, vaultAATA, admin_two.publicKey, mintA.mint.publicKey
-      ),
-      createAssociatedTokenAccountInstruction(
-        key, vaultBATA, admin_two.publicKey, mintB.mint.publicKey
-      )
-    );
-
-    await anchor.AnchorProvider.env().sendAndConfirm(mint_tx2, []);
-
-    let vaultAPDA = await getAssociatedTokenAddress(
-      mintA.mint.publicKey,
-      vaultAPDAKey,
-      true,
-    );
-
-    const mint_tx3 = new anchor.web3.Transaction().add(
-      createAssociatedTokenAccountInstruction(
-        key, 
-        vaultAPDA, 
-        vaultAPDAKey, 
-        //admin_two.publicKey,//making new owner does work for some reason
-        mintA.mint.publicKey
-      )
-    );
-
-
-    await anchor.AnchorProvider.env().sendAndConfirm(mint_tx3, []);
-    await quickTransfer(mintA.associated_token_account, vaultAPDA, 12, key);
-
-
-
-
-    await quickTransfer(mintA.associated_token_account, vaultAATA, 15, key);
-    await quickTransfer(mintB.associated_token_account, vaultBATA, 12, key);
-
-
     
     await program.methods.create("A:B,1:2").accounts({
       payer: key,
@@ -186,21 +131,104 @@ describe("exchange_booth", () => {
     assert.equal(tweetAccount.vaultB.toBase58(), vaultBPDAKey.toBase58());
 
     assert.equal(tweetAccount.bump, theBump);
-
-    // // This is what we transfered into the PDA of vault A
-    // assert.equal(await retrieve_amount_for_ata(tweetAccount.vaultA), 14);
-    // assert.equal(await retrieve_amount_for_ata(vaultAPDAKey), 14);
-
-    // // Vault A we transfered out of
-    // assert.equal(await retrieve_amount_for_ata(vaultAATA), 1);
-
-
-
-    // assert.equal(await retrieve_amount_for_ata(tweetAccount.vaultB), 12);
-
-    
   });
 
+  it('can deposit into an exchange booth', async () => {
+    const key = anchor.AnchorProvider.env().wallet.publicKey;
+   
+    let mintA = await createMint(100)
+    let mintB = await createMint(250)
+
+    const admin_two: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
+
+    let [theKey, _theBump] = (await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("ebpda"),
+        mintA.mint.publicKey.toBuffer(),
+        mintB.mint.publicKey.toBuffer()
+      ],
+      program.programId
+    ));
+
+    let [vaultAPDAKey, _] = (await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("EBVaultA"),
+        mintA.mint.publicKey.toBuffer(),
+      ],
+      program.programId
+    ));
+
+    let [vaultBPDAKey, s] = (await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("EBVaultB"),
+        mintB.mint.publicKey.toBuffer(),
+      ],
+      program.programId
+    ));
+    
+    await program.methods.create("A:B,1:2").accounts({
+      payer: key,
+      admin: admin_two.publicKey,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      mintA: mintA.mint.publicKey,
+      mintB: mintB.mint.publicKey,
+      dataLocation: theKey,
+      vaultAPdaKey: vaultAPDAKey,
+      vaultBPdaKey: vaultBPDAKey,
+    }).signers([
+      admin_two
+    ]).rpc()
+
+    let vaultAATA = await getAssociatedTokenAddress(
+      mintA.mint.publicKey,
+      admin_two.publicKey
+    );
+
+    let vaultBATA = await getAssociatedTokenAddress(
+      mintB.mint.publicKey,
+      admin_two.publicKey
+    );
+
+    const mint_tx2 = new anchor.web3.Transaction().add(
+      createAssociatedTokenAccountInstruction(
+        key, vaultAATA, admin_two.publicKey, mintA.mint.publicKey
+      ),
+      createAssociatedTokenAccountInstruction(
+        key, vaultBATA, admin_two.publicKey, mintB.mint.publicKey
+      )
+    );
+
+    await anchor.AnchorProvider.env().sendAndConfirm(mint_tx2, []);
+
+    await quickTransfer(mintA.associated_token_account, vaultAATA, 15, key);
+    await quickTransfer(mintB.associated_token_account, vaultBATA, 12, key);
+
+    assert.equal(await retrieve_amount_for_ata(vaultAATA), 15);
+    assert.equal(await retrieve_amount_for_ata(vaultBATA), 12);
+    assert.equal(await retrieve_amount_for_ata(vaultAPDAKey), 0);
+    assert.equal(await retrieve_amount_for_ata(vaultBPDAKey), 0);
+
+    await program.methods.deposit().accounts({
+      payer: key,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      mintA: mintA.mint.publicKey,
+      mintB: mintB.mint.publicKey,
+      vaultATransferOutOf: vaultAATA,
+      vaultBTransferOutOf: vaultBATA,
+      dataLocation: theKey,
+      vaultAPda: vaultAPDAKey,
+      vaultBPda: vaultBPDAKey,
+      admin: admin_two.publicKey,
+      programmId: program.programId,
+    }).signers([admin_two]).rpc()
+
+
+    assert.equal(await retrieve_amount_for_ata(vaultAATA), 14);
+    assert.equal(await retrieve_amount_for_ata(vaultAPDAKey), 1);
+
+    assert.equal(await retrieve_amount_for_ata(vaultBATA), 10);
+    assert.equal(await retrieve_amount_for_ata(vaultBPDAKey), 2);
+  });
   it('can create super simple account', async () => {
     const data_location: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
 

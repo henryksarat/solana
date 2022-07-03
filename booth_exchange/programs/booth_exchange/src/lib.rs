@@ -2,8 +2,6 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, MintTo, Transfer, TokenAccount};
 use anchor_spl::token;
 
-// use token_minter::cpi::accounts::TransferToken;
-
 declare_id!("FS4tM81VusiHgaKe7Ar7X1fJesJCZho5CCWFELWcpckF");
 
 
@@ -25,7 +23,7 @@ pub mod booth_exchange {
     }
 
     pub fn create(ctx: Context<ExchangeBoothAccounts>, oracle_data: String) -> Result<()> {
-        msg!("here111111111");
+        msg!("in crate");
         
         let tweet = &mut ctx.accounts.data_location;
         
@@ -36,7 +34,7 @@ pub mod booth_exchange {
         let mint_b = &ctx.accounts.mint_b.to_account_info();
         let vault_a = &ctx.accounts.vault_a_pda_key.to_account_info();
         let vault_b = &ctx.accounts.vault_b_pda_key.to_account_info();
-        
+
         tweet.payer = *payer.key;
         tweet.program_id = *system_program.key;
         tweet.mint_a = *mint_a.key;
@@ -46,6 +44,9 @@ pub mod booth_exchange {
         tweet.oracle = oracle_data;
         tweet.admin = *admin.key;
         tweet.bump = *ctx.bumps.get("data_location").unwrap();
+
+        // msg!("the pda for A is={}", ctx.accounts.vault_a_pda_key.to_account_info().key);
+        // msg!("the pda for A is={}", *vault_a.key);
 
         // let transfer_instruction = Transfer{
         //     from: ctx.accounts.vault_a_transfer_out_of.to_account_info(),
@@ -84,6 +85,71 @@ pub mod booth_exchange {
 
         Ok(())
     }
+
+    pub fn deposit(ctx: Context<DeepositAccounts>) -> Result<()> {
+        msg!("in deposit");
+        
+        let mint_a = &ctx.accounts.mint_a.to_account_info();
+        let mint_b = &ctx.accounts.mint_b.to_account_info();
+        let programm_id = &ctx.accounts.programm_id.to_account_info();
+
+        let tweet = &mut ctx.accounts.data_location;
+
+        let vault_a_pda = &mut ctx.accounts.vault_a_pda.to_account_info();
+        let vault_b_pda = &mut ctx.accounts.vault_b_pda.to_account_info();
+
+
+        let (vault_a_auth_key, _) = Pubkey::find_program_address(
+            &[
+                b"EBVaultA",
+                mint_a.key.as_ref(),
+            ],
+            programm_id.key,
+        );
+
+        if vault_a_auth_key != tweet.vault_a || *vault_a_pda.key != tweet.vault_a {
+            return Err(ErrorCode::VaultAIncorrect.into())
+        }
+
+        let (vault_b_auth_key, _) = Pubkey::find_program_address(
+            &[
+                b"EBVaultB",
+                mint_b.key.as_ref(),
+            ],
+            programm_id.key,
+        );
+
+        if vault_b_auth_key != tweet.vault_b || *vault_b_pda.key != tweet.vault_b {
+            return Err(ErrorCode::VaultAIncorrect.into())
+        }
+
+        let transfer_instruction_vault_a = Transfer{
+            from: ctx.accounts.vault_a_transfer_out_of.to_account_info(),
+            to: ctx.accounts.vault_a_pda.to_account_info(),
+            authority: ctx.accounts.admin.to_account_info(),
+        };
+        
+        let cpi_program_vault_a = ctx.accounts.token_program.to_account_info();
+
+        let cpi_ctx_vault_a = CpiContext::new(cpi_program_vault_a, transfer_instruction_vault_a);
+
+        anchor_spl::token::transfer(cpi_ctx_vault_a, 1)?;
+
+
+        let transfer_instruction_vault_b = Transfer{
+            from: ctx.accounts.vault_b_transfer_out_of.to_account_info(),
+            to: ctx.accounts.vault_b_pda.to_account_info(),
+            authority: ctx.accounts.admin.to_account_info(),
+        };
+        
+        let cpi_program_vault_b = ctx.accounts.token_program.to_account_info();
+
+        let cpi_ctx_vault_b = CpiContext::new(cpi_program_vault_b, transfer_instruction_vault_b);
+
+        anchor_spl::token::transfer(cpi_ctx_vault_b, 2)?;
+
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -99,6 +165,61 @@ pub struct SuperSimpleLengthAccounts<'info> {
     pub admin: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct DeepositAccounts<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    #[account(
+        seeds=[
+            b"ebpda", 
+            mint_a.key().as_ref(),
+            mint_b.key().as_ref()
+        ],
+        bump
+    )]
+    pub data_location: Account<'info, ExchangeBooth>,
+
+    /// CHECK: Mint A Token
+    pub mint_a: UncheckedAccount<'info>,
+
+    /// CHECK: Mint B Token
+    pub mint_b: UncheckedAccount<'info>,
+
+    /// CHECK: When we attempt to transfer with the authority that
+    /// will be enough of a check
+    #[account(mut)]
+    pub vault_a_transfer_out_of: UncheckedAccount<'info>,
+
+    /// CHECK: When we attempt to transfer with the authority that
+    /// will be enough of a check
+    #[account(mut)]
+    pub vault_b_transfer_out_of: UncheckedAccount<'info>,
+
+    /// CHECK: If I do a PDA check here I can't tranfer money for some reason
+    /// so I do this unchecked. I do a check inside the function though
+    /// to make sure that this is the same key when we did the "create"
+    #[account(mut)]
+    pub vault_a_pda: UncheckedAccount<'info>,
+
+    /// CHECK: If I do a PDA check here I can't tranfer money for some reason
+    /// so I do this unchecked. I do a check inside the function though
+    /// to make sure that this is the same key when we did the "create"
+    #[account(mut)]
+    pub vault_b_pda: UncheckedAccount<'info>,
+
+    pub system_program: Program<'info, System>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>, 
+
+    /// CHECK: I can't spell this program_id for some reason but
+    /// I pass this in still because I want to verify the PDA
+    /// for vault_a_pda and vault_b_pda manually in "deposit"
+    pub programm_id: UncheckedAccount<'info>,
+
+    token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
@@ -131,13 +252,6 @@ pub struct ExchangeBoothAccounts<'info> {
     /// CHECK: Some token
     pub mint_b: UncheckedAccount<'info>,
 
-    ///// CHECK: Need to be able to update the amount, can be a PDA in the future
-    // #[account(mut)]
-    // pub vault_a_transfer_out_of: UncheckedAccount<'info>,
-
-    ///// CHECK: Need to be able to update the amount, can be a PDA in the future
-    // #[account(mut)]
-    // pub vault_b_transfer_out_of: UncheckedAccount<'info>,
     #[account(
         init,
         payer = payer,
@@ -228,3 +342,9 @@ impl SuperSimpleSave {
 //     // the authority of the from account 
 //     pub from_authority: Signer<'info>,
 // }
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("The provided topic should be 50 characters long maximum.")]
+    VaultAIncorrect,
+}
