@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Token, MintTo, Transfer};
+use anchor_spl::token::{Token, MintTo, Transfer, TokenAccount};
 use anchor_spl::token;
+
+// use token_minter::cpi::accounts::TransferToken;
 
 declare_id!("FS4tM81VusiHgaKe7Ar7X1fJesJCZho5CCWFELWcpckF");
 
@@ -23,6 +25,8 @@ pub mod booth_exchange {
     }
 
     pub fn create(ctx: Context<ExchangeBoothAccounts>, oracle_data: String) -> Result<()> {
+        msg!("here111111111");
+        
         let tweet = &mut ctx.accounts.data_location;
         
         let payer: &Signer = &ctx.accounts.payer;
@@ -30,8 +34,8 @@ pub mod booth_exchange {
         let system_program = &ctx.accounts.system_program.to_account_info();
         let mint_a = &ctx.accounts.mint_a.to_account_info();
         let mint_b = &ctx.accounts.mint_b.to_account_info();
-        let vault_a = &ctx.accounts.vault_a.to_account_info();
-        let vault_b = &ctx.accounts.vault_b.to_account_info();
+        let vault_a = &ctx.accounts.vault_a_pda_key.to_account_info();
+        let vault_b = &ctx.accounts.vault_b_pda_key.to_account_info();
         
         tweet.payer = *payer.key;
         tweet.program_id = *system_program.key;
@@ -39,11 +43,36 @@ pub mod booth_exchange {
         tweet.mint_b = *mint_b.key;
         tweet.vault_a = *vault_a.key;
         tweet.vault_b = *vault_b.key;
-        tweet.call_count = 23;
         tweet.oracle = oracle_data;
         tweet.admin = *admin.key;
         tweet.bump = *ctx.bumps.get("data_location").unwrap();
 
+        // let transfer_instruction = Transfer{
+        //     from: ctx.accounts.vault_a_transfer_out_of.to_account_info(),
+        //     to: ctx.accounts.vault_a_pda_key.to_account_info(),
+        //     authority: ctx.accounts.admin.to_account_info(),
+        // };
+        
+        // let cpi_program = ctx.accounts.token_program.to_account_info();
+
+        // let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
+
+        // anchor_spl::token::transfer(cpi_ctx, 14)?;
+
+
+        // let transfer_instruction = Transfer{
+        //     from: ctx.accounts.vault_a_pda_key.to_account_info(),
+        //     to: ctx.accounts.vault_a.to_account_info(),
+        //     authority: ctx.accounts.admin.to_account_info(),
+        // };
+        
+        // let cpi_program = ctx.accounts.token_program.to_account_info();
+
+        // let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
+
+        // anchor_spl::token::transfer(cpi_ctx, 2)?;
+
+        msg!("here2222222");
         Ok(())
     }
 
@@ -81,7 +110,7 @@ pub struct ExchangeBoothAccounts<'info> {
         space = ExchangeBooth::LEN,
         seeds=[
             b"ebpda", 
-            admin.key().as_ref(), 
+            // admin.key().as_ref(), 
             mint_a.key().as_ref(),
             mint_b.key().as_ref()
         ],
@@ -101,20 +130,48 @@ pub struct ExchangeBoothAccounts<'info> {
 
     /// CHECK: Some token
     pub mint_b: UncheckedAccount<'info>,
-    /// CHECK: Need to be able to update the amount
-    #[account(mut)]
-    pub vault_a: UncheckedAccount<'info>,
 
-    /// CHECK: Need to be able to update the amount
-    #[account(mut)]
-    pub vault_b: UncheckedAccount<'info>
+    ///// CHECK: Need to be able to update the amount, can be a PDA in the future
+    // #[account(mut)]
+    // pub vault_a_transfer_out_of: UncheckedAccount<'info>,
+
+    ///// CHECK: Need to be able to update the amount, can be a PDA in the future
+    // #[account(mut)]
+    // pub vault_b_transfer_out_of: UncheckedAccount<'info>,
+    #[account(
+        init,
+        payer = payer,
+        seeds=[
+            b"EBVaultA", 
+            mint_a.key().as_ref(),
+            // admin.key().as_ref()
+        ],
+        bump,
+        token::mint=mint_a,
+        token::authority=admin,
+    )]
+    pub vault_a_pda_key: Account<'info, TokenAccount>,
+    #[account(
+        init,
+        payer = payer,
+        seeds=[
+            b"EBVaultB", 
+            mint_b.key().as_ref(),
+            // admin.key().as_ref()
+        ],
+        bump,
+        token::mint=mint_b,
+        token::authority=admin,
+    )]
+    pub vault_b_pda_key: Account<'info, TokenAccount>,
+    rent: Sysvar<'info, Rent>,
+    token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
 pub struct Initialize {}
 
 #[account]
-// #[derive(Default)]
 pub struct ExchangeBooth {
     pub payer: Pubkey,
     pub admin: Pubkey,
@@ -122,8 +179,10 @@ pub struct ExchangeBooth {
     pub mint_b: Pubkey, // Needed for decimal value
     pub vault_a: Pubkey, // Associated Token Account for A
     pub vault_b: Pubkey, // Associated Token Account for A
-    pub call_count: i32,
+
+    // // Can be address to somewhere that holds the info
     pub oracle: String,
+
     pub program_id: Pubkey,
     pub bump: u8,
 }
@@ -150,7 +209,6 @@ impl ExchangeBooth {
         + PUBLIC_KEY_LENGTH // Vault B.
         + PUBLIC_KEY_LENGTH // Program Id
         + BUMP_LENGTH
-        + CALL_COUNT_LENGTH
         + STRING_LENGTH_PREFIX + MAX_TOPIC_LENGTH; // Topic.
 }
 
@@ -158,16 +216,15 @@ impl SuperSimpleSave {
     const LEN: usize = DISCRIMINATOR_LENGTH + CALL_COUNT_LENGTH;
 }
 
-#[derive(Accounts)]
-pub struct MintToken<'info> {
-    /// CHECK: This is the token that we want to mint
-    #[account(mut)]
-    pub mint: UncheckedAccount<'info>,
-    pub token_program: Program<'info, Token>,
-    /// CHECK: This is the token account that we want to mint tokens to
-    #[account(mut)]
-    pub token_account: UncheckedAccount<'info>,
-    /// CHECK: the authority of the mint account
-    #[account(mut)]
-    pub authority: AccountInfo<'info>,
-}
+// #[derive(Accounts)]
+// pub struct TransferToken<'info> {
+//     pub token_program: Program<'info, Token>,
+//     /// CHECK: The associated token account that we are transferring the token from
+//     #[account(mut)]
+//     pub from: UncheckedAccount<'info>,
+//     /// CHECK: The associated token account that we are transferring the token to
+//     #[account(mut)]
+//     pub to: AccountInfo<'info>,
+//     // the authority of the from account 
+//     pub from_authority: Signer<'info>,
+// }

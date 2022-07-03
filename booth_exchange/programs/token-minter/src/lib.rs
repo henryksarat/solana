@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, MintTo, Transfer};
 use anchor_spl::token;
 
+
 //declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 declare_id!("FgWP6Y7nfHse7w5FmyJQ5gLGiuwVNKmQ1XNV11yyuMmf");
 
@@ -9,9 +10,9 @@ declare_id!("FgWP6Y7nfHse7w5FmyJQ5gLGiuwVNKmQ1XNV11yyuMmf");
 pub mod token_minter {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        Ok(())
-    }
+    // pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+    //     Ok(())
+    // }
 
     // Created this for each of testing
     pub fn mint_token(ctx: Context<MintToken>, amount: u64) -> Result<()> {
@@ -51,8 +52,8 @@ pub mod token_minter {
     }
 }
 
-#[derive(Accounts)]
-pub struct Initialize {}
+// #[derive(Accounts)]
+// pub struct Initialize {}
 
 #[derive(Accounts)]
 pub struct MintToken<'info> {

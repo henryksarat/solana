@@ -63,7 +63,7 @@ describe("exchange_booth", () => {
     const amountOther = await retrieve_amount_for_ata(tomKeyATA);
     assert.equal(amountOther, 0);
 
-    await quickTransfer(result.associated_token_account, tomKeyATA, 3);
+    await quickTransfer(result.associated_token_account, tomKeyATA, 3, key);
 
     const amountOtherAfterTransfer = await retrieve_amount_for_ata(tomKeyATA);
     assert.equal(amountOtherAfterTransfer, 3);
@@ -72,20 +72,40 @@ describe("exchange_booth", () => {
     assert.equal(amountOfAdaminATAAfterTransfer, 9);
   })
 
-  it('can crate and exchange booth', async () => {
+  it('can create and exchange booth', async () => {
     const key = anchor.AnchorProvider.env().wallet.publicKey;
    
     let mintA = await createMint(100)
     let mintB = await createMint(250)
 
     const admin_two: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
+    const admin_three: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
+
+    await program.provider.connection.requestAirdrop(admin_two.publicKey, 1000000000);
+    await program.provider.connection.requestAirdrop(admin_three.publicKey, 1000000000);
+    await program.provider.connection.requestAirdrop(key, 1000000000);
 
     let [theKey, theBump] = (await PublicKey.findProgramAddress(
       [
         anchor.utils.bytes.utf8.encode("ebpda"),
-        admin_two.publicKey.toBuffer(),
         mintA.mint.publicKey.toBuffer(),
         mintB.mint.publicKey.toBuffer()
+      ],
+      program.programId
+    ));
+
+    let [vaultAPDAKey, _] = (await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("EBVaultA"),
+        mintA.mint.publicKey.toBuffer(),
+      ],
+      program.programId
+    ));
+
+    let [vaultBPDAKey, s] = (await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("EBVaultB"),
+        mintB.mint.publicKey.toBuffer(),
       ],
       program.programId
     ));
@@ -94,10 +114,12 @@ describe("exchange_booth", () => {
       mintA.mint.publicKey,
       admin_two.publicKey
     );
+
     let vaultBATA = await getAssociatedTokenAddress(
       mintB.mint.publicKey,
       admin_two.publicKey
     );
+
     
     const mint_tx2 = new anchor.web3.Transaction().add(
       createAssociatedTokenAccountInstruction(
@@ -110,21 +132,46 @@ describe("exchange_booth", () => {
 
     await anchor.AnchorProvider.env().sendAndConfirm(mint_tx2, []);
 
+    let vaultAPDA = await getAssociatedTokenAddress(
+      mintA.mint.publicKey,
+      vaultAPDAKey,
+      true,
+    );
+
+    const mint_tx3 = new anchor.web3.Transaction().add(
+      createAssociatedTokenAccountInstruction(
+        key, 
+        vaultAPDA, 
+        vaultAPDAKey, 
+        //admin_two.publicKey,//making new owner does work for some reason
+        mintA.mint.publicKey
+      )
+    );
+
+
+    await anchor.AnchorProvider.env().sendAndConfirm(mint_tx3, []);
+    await quickTransfer(mintA.associated_token_account, vaultAPDA, 12, key);
+
+
+
+
+    await quickTransfer(mintA.associated_token_account, vaultAATA, 15, key);
+    await quickTransfer(mintB.associated_token_account, vaultBATA, 12, key);
+
+
+    
     await program.methods.create("A:B,1:2").accounts({
       payer: key,
       admin: admin_two.publicKey,
       systemProgram: anchor.web3.SystemProgram.programId,
       mintA: mintA.mint.publicKey,
       mintB: mintB.mint.publicKey,
-      vaultA: vaultAATA,
-      vaultB: vaultBATA,
-      dataLocation: theKey
+      dataLocation: theKey,
+      vaultAPdaKey: vaultAPDAKey,
+      vaultBPdaKey: vaultBPDAKey,
     }).signers([
       admin_two
-    ]).rpc();
-    
-    await quickTransfer(mintA.associated_token_account, vaultAATA, 15);
-    await quickTransfer(mintB.associated_token_account, vaultBATA, 12);
+    ]).rpc()
 
     const tweetAccount = await program.account.exchangeBooth.fetch(theKey);
     
@@ -132,17 +179,26 @@ describe("exchange_booth", () => {
     assert.equal(tweetAccount.admin.toBase58(), admin_two.publicKey.toBase58());
     assert.equal(tweetAccount.programId.toBase58(), anchor.web3.SystemProgram.programId.toBase58());
     assert.equal(tweetAccount.oracle, 'A:B,1:2');
-    assert.equal(tweetAccount.callCount, 23);
     assert.equal(tweetAccount.mintA.toBase58(), mintA.mint.publicKey.toBase58());
     assert.equal(tweetAccount.mintB.toBase58(), mintB.mint.publicKey.toBase58());
 
-    assert.equal(tweetAccount.vaultA.toBase58(), vaultAATA.toBase58());
-    assert.equal(tweetAccount.vaultB.toBase58(), vaultBATA.toBase58());
+    assert.equal(tweetAccount.vaultA.toBase58(), vaultAPDAKey.toBase58());
+    assert.equal(tweetAccount.vaultB.toBase58(), vaultBPDAKey.toBase58());
 
     assert.equal(tweetAccount.bump, theBump);
 
-    assert.equal(await retrieve_amount_for_ata(tweetAccount.vaultA), 15);
-    assert.equal(await retrieve_amount_for_ata(tweetAccount.vaultB), 12);
+    // // This is what we transfered into the PDA of vault A
+    // assert.equal(await retrieve_amount_for_ata(tweetAccount.vaultA), 14);
+    // assert.equal(await retrieve_amount_for_ata(vaultAPDAKey), 14);
+
+    // // Vault A we transfered out of
+    // assert.equal(await retrieve_amount_for_ata(vaultAATA), 1);
+
+
+
+    // assert.equal(await retrieve_amount_for_ata(tweetAccount.vaultB), 12);
+
+    
   });
 
   it('can create super simple account', async () => {
@@ -214,12 +270,12 @@ describe("exchange_booth", () => {
     ).value.data.parsed.info.tokenAmount.amount;
   }
 
-  async function quickTransfer(from, to, amount) {
+  async function quickTransfer(from, to, amount, signer) {
     await programTokenMinter.methods.transferToken(new BN(amount, 10)).accounts({
       tokenProgram: TOKEN_PROGRAM_ID,
       from: from,
       to: to,
-      fromAuthority: key,
+      fromAuthority: signer,
     }).rpc();
   }
 });
