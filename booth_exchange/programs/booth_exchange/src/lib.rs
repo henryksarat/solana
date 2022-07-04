@@ -23,7 +23,7 @@ pub mod booth_exchange {
     }
 
     pub fn create(ctx: Context<ExchangeBoothAccounts>, oracle_data: String) -> Result<()> {
-        msg!("in crate");
+        msg!("in create");
         
         let tweet = &mut ctx.accounts.data_location;
         
@@ -78,7 +78,7 @@ pub mod booth_exchange {
     }
 
     pub fn super_simple(ctx: Context<SuperSimpleLengthAccounts>) -> Result<()> {
-        msg!("in super simple!!");
+        msg!("in super simple");
         
         let tweet = &mut ctx.accounts.data_location;
         tweet.call_count = 59;
@@ -106,8 +106,8 @@ pub mod booth_exchange {
             ],
             programm_id.key,
         );
-
-        if vault_a_auth_key != tweet.vault_a || *vault_a_pda.key != tweet.vault_a {
+        
+        if *vault_a_pda.key != tweet.vault_a || *vault_a_pda.key != vault_a_auth_key {
             return Err(ErrorCode::VaultAIncorrect.into())
         }
 
@@ -119,8 +119,8 @@ pub mod booth_exchange {
             programm_id.key,
         );
 
-        if vault_b_auth_key != tweet.vault_b || *vault_b_pda.key != tweet.vault_b {
-            return Err(ErrorCode::VaultAIncorrect.into())
+        if *vault_b_pda.key != tweet.vault_b || *vault_b_pda.key != vault_b_auth_key {
+            return Err(ErrorCode::VaultBIncorrect.into())
         }
 
         let transfer_instruction_vault_a = Transfer{
@@ -345,6 +345,8 @@ impl SuperSimpleSave {
 
 #[error_code]
 pub enum ErrorCode {
-    #[msg("The provided topic should be 50 characters long maximum.")]
+    #[msg("Vault A key is incorrect.")]
     VaultAIncorrect,
+    #[msg("Vault B key is incorrect.")]
+    VaultBIncorrect,
 }
