@@ -45,35 +45,6 @@ pub mod booth_exchange {
         tweet.admin = *admin.key;
         tweet.bump = *ctx.bumps.get("data_location").unwrap();
 
-        // msg!("the pda for A is={}", ctx.accounts.vault_a_pda_key.to_account_info().key);
-        // msg!("the pda for A is={}", *vault_a.key);
-
-        // let transfer_instruction = Transfer{
-        //     from: ctx.accounts.vault_a_transfer_out_of.to_account_info(),
-        //     to: ctx.accounts.vault_a_pda_key.to_account_info(),
-        //     authority: ctx.accounts.admin.to_account_info(),
-        // };
-        
-        // let cpi_program = ctx.accounts.token_program.to_account_info();
-
-        // let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
-
-        // anchor_spl::token::transfer(cpi_ctx, 14)?;
-
-
-        // let transfer_instruction = Transfer{
-        //     from: ctx.accounts.vault_a_pda_key.to_account_info(),
-        //     to: ctx.accounts.vault_a.to_account_info(),
-        //     authority: ctx.accounts.admin.to_account_info(),
-        // };
-        
-        // let cpi_program = ctx.accounts.token_program.to_account_info();
-
-        // let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
-
-        // anchor_spl::token::transfer(cpi_ctx, 2)?;
-
-        msg!("here2222222");
         Ok(())
     }
 
@@ -86,7 +57,11 @@ pub mod booth_exchange {
         Ok(())
     }
 
-    pub fn deposit(ctx: Context<DeepositAccounts>) -> Result<()> {
+    pub fn deposit(
+        ctx: Context<DeepositAccounts>, 
+        vault_a_deposit_amount: u64, 
+        vault_b_deposit_amount: u64,
+    ) -> Result<()> {
         msg!("in deposit");
         
         let mint_a = &ctx.accounts.mint_a.to_account_info();
@@ -133,7 +108,7 @@ pub mod booth_exchange {
 
         let cpi_ctx_vault_a = CpiContext::new(cpi_program_vault_a, transfer_instruction_vault_a);
 
-        anchor_spl::token::transfer(cpi_ctx_vault_a, 1)?;
+        anchor_spl::token::transfer(cpi_ctx_vault_a, vault_a_deposit_amount)?;
 
 
         let transfer_instruction_vault_b = Transfer{
@@ -146,7 +121,55 @@ pub mod booth_exchange {
 
         let cpi_ctx_vault_b = CpiContext::new(cpi_program_vault_b, transfer_instruction_vault_b);
 
-        anchor_spl::token::transfer(cpi_ctx_vault_b, 2)?;
+        anchor_spl::token::transfer(cpi_ctx_vault_b, vault_b_deposit_amount)?;
+
+        Ok(())
+    }
+
+    // We want to transfer amount of A for B
+    // We have to remove amount from Customer Wallet A and send to Vault A
+    // We have to remove amount * exchange of 2 from Vault B and send to Customer Wallet B
+    pub fn execute_trade(ctx: Context<ExecuteTradeAccounts>, amount: u64) -> Result<()> {
+        msg!("in trade");
+        
+        let tweet = &mut ctx.accounts.data_location;
+        
+        let mut split = tweet.oracle.split(":");
+
+        let vault_a_exchange = split.next();
+        let vault_b_exchange = split.next();
+
+        msg!("oracle={}", tweet.oracle);
+        msg!("a exhcange={}", vault_a_exchange.unwrap());
+        msg!("b exhcange={}", vault_b_exchange.unwrap());
+
+
+        let transfer_instruction = Transfer{
+            from: ctx.accounts.vault_a_customer.to_account_info(),
+            to: ctx.accounts.vault_a_pda.to_account_info(),
+            authority: ctx.accounts.customer.to_account_info(),
+        };
+        
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+
+        let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
+
+        anchor_spl::token::transfer(cpi_ctx, amount)?;
+
+        let transfer_instruction_b = Transfer{
+            from: ctx.accounts.vault_b_pda.to_account_info(),
+            to: ctx.accounts.vault_b_customer.to_account_info(),
+            authority: ctx.accounts.admin.to_account_info(),
+        };
+        
+        let cpi_program_b = ctx.accounts.token_program.to_account_info();
+
+        let cpi_ctx_b = CpiContext::new(cpi_program_b, transfer_instruction_b);
+
+        let amount_to_multiply: u64 = vault_b_exchange.unwrap().parse().unwrap();
+        let amount_for_b = amount * amount_to_multiply;
+
+        anchor_spl::token::transfer(cpi_ctx_b, amount_for_b)?;
 
         Ok(())
     }
@@ -165,6 +188,65 @@ pub struct SuperSimpleLengthAccounts<'info> {
     pub admin: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+}
+
+
+#[derive(Accounts)]
+pub struct ExecuteTradeAccounts<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    #[account(
+        seeds=[
+            b"ebpda", 
+            mint_a.key().as_ref(),
+            mint_b.key().as_ref()
+        ],
+        bump
+    )]
+    pub data_location: Account<'info, ExchangeBooth>,
+
+    /// CHECK: Mint A Token
+    pub mint_a: UncheckedAccount<'info>,
+
+    /// CHECK: Mint B Token
+    pub mint_b: UncheckedAccount<'info>,
+
+    /// CHECK: When we attempt to transfer with the authority that
+    /// will be enough of a check
+    #[account(mut)]
+    pub vault_a_customer: UncheckedAccount<'info>,
+
+    /// CHECK: When we attempt to transfer with the authority that
+    /// will be enough of a check
+    #[account(mut)]
+    pub vault_b_customer: UncheckedAccount<'info>,
+
+    /// CHECK: If I do a PDA check here I can't tranfer money for some reason
+    /// so I do this unchecked. I do a check inside the function though
+    /// to make sure that this is the same key when we did the "create"
+    #[account(mut)]
+    pub vault_a_pda: UncheckedAccount<'info>,
+
+    /// CHECK: If I do a PDA check here I can't tranfer money for some reason
+    /// so I do this unchecked. I do a check inside the function though
+    /// to make sure that this is the same key when we did the "create"
+    #[account(mut)]
+    pub vault_b_pda: UncheckedAccount<'info>,
+
+    pub system_program: Program<'info, System>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>, 
+
+    #[account(mut)]
+    pub customer: Signer<'info>, 
+
+    /// CHECK: I can't spell this program_id for some reason but
+    /// I pass this in still because I want to verify the PDA
+    /// for vault_a_pda and vault_b_pda manually in "deposit"
+    pub programm_id: UncheckedAccount<'info>,
+
+    token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
