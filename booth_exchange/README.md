@@ -1,10 +1,7 @@
 ## Implemented
-* Create Exchange Booth
-As an admin create an exchange rate between two tokens
-*Deposit to Excahnge Booth
-As an admin, deposit into the vault of both Mints in the Exchange Booth. This is using PDA's. (Program Derived Addresses)
-*Trade
-As a customer exchange between Token A and B or between Token B and A
+* Create Exchange Booth - As an admin create an exchange rate between two tokens
+* Deposit to Excahnge Booth - As an admin, deposit into the vault of both Mints in the Exchange Booth. This is using PDA's. (Program Derived Addresses)
+* Trade - As a customer exchange between Token A and B or between Token B and A
 
 ## TODO
 
