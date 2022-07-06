@@ -126,51 +126,125 @@ pub mod booth_exchange {
         Ok(())
     }
 
-    // We want to transfer amount of A for B
-    // We have to remove amount from Customer Wallet A and send to Vault A
-    // We have to remove amount * exchange of 2 from Vault B and send to Customer Wallet B
-    pub fn execute_trade(ctx: Context<ExecuteTradeAccounts>, amount: u64) -> Result<()> {
+    pub fn execute_trade(
+        ctx: Context<ExecuteTradeAccounts>, 
+        amount: u64, 
+        current_mint:Pubkey, 
+        mint_to_get: Pubkey
+    ) -> Result<()> {
         msg!("in trade");
+
+        let float_amount: f32 = amount as f32;
         
         let tweet = &mut ctx.accounts.data_location;
+
+        if current_mint != tweet.mint_a && current_mint != tweet.mint_b {
+            return Err(ErrorCode::MintNotSupported.into())
+        }
+
+        if mint_to_get != tweet.mint_a && mint_to_get != tweet.mint_b {
+            return Err(ErrorCode::MintNotSupported.into())
+        }
+
+        let mut want_to_get_mint_a: bool = true;
+
+        if mint_to_get == tweet.mint_b {
+            want_to_get_mint_a = false;
+        }
         
+
+        msg!("with key={}", mint_to_get);
+        
+        
+        
+        msg!("mint A={}", tweet.mint_a);
+        msg!("mint B={}", tweet.mint_b);
+
         let mut split = tweet.oracle.split(":");
 
-        let vault_a_exchange = split.next();
-        let vault_b_exchange = split.next();
+        let vault_a_exchange: f32 = split.next().unwrap().parse().unwrap();;
+        let vault_b_exchange: f32 = split.next().unwrap().parse().unwrap();;
+
 
         msg!("oracle={}", tweet.oracle);
-        msg!("a exhcange={}", vault_a_exchange.unwrap());
-        msg!("b exhcange={}", vault_b_exchange.unwrap());
 
-
-        let transfer_instruction = Transfer{
-            from: ctx.accounts.vault_a_customer.to_account_info(),
-            to: ctx.accounts.vault_a_pda.to_account_info(),
-            authority: ctx.accounts.customer.to_account_info(),
-        };
+     
         
-        let cpi_program = ctx.accounts.token_program.to_account_info();
+        // 5:20 = 5/20=0.25
+        // 
+        msg!("want_to_get_mint_a={}", want_to_get_mint_a);
+        if want_to_get_mint_a == true {
+            // We want Mint A
+            // We want to transfer amount of B for A
+            // We have to remove amount from Customer Wallet B and send to Vault B
+            // We have to remove amount * exchange of 2 from Vault A and send to Customer Wallet A
+            let transfer_instruction_b = Transfer{
+                from: ctx.accounts.vault_b_customer.to_account_info(),
+                to: ctx.accounts.vault_b_pda.to_account_info(),
+                authority: ctx.accounts.customer.to_account_info(),
+            };
+            
+            let cpi_program_b = ctx.accounts.token_program.to_account_info();
 
-        let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
+            let cpi_ctx_b = CpiContext::new(cpi_program_b, transfer_instruction_b);
 
-        anchor_spl::token::transfer(cpi_ctx, amount)?;
+            anchor_spl::token::transfer(cpi_ctx_b, float_amount as u64)?;
 
-        let transfer_instruction_b = Transfer{
-            from: ctx.accounts.vault_b_pda.to_account_info(),
-            to: ctx.accounts.vault_b_customer.to_account_info(),
-            authority: ctx.accounts.admin.to_account_info(),
-        };
-        
-        let cpi_program_b = ctx.accounts.token_program.to_account_info();
 
-        let cpi_ctx_b = CpiContext::new(cpi_program_b, transfer_instruction_b);
+            let transfer_instruction = Transfer{
+                from: ctx.accounts.vault_a_pda.to_account_info(),
+                to: ctx.accounts.vault_a_customer.to_account_info(),
+                authority: ctx.accounts.admin.to_account_info(),
+            };
+            
+            let cpi_program = ctx.accounts.token_program.to_account_info();
+    
+            let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
 
-        let amount_to_multiply: u64 = vault_b_exchange.unwrap().parse().unwrap();
-        let amount_for_b = amount * amount_to_multiply;
+            let amount_for_a = float_amount * (vault_a_exchange/vault_b_exchange);
+            
+            anchor_spl::token::transfer(cpi_ctx, (amount_for_a as u64))?;
 
-        anchor_spl::token::transfer(cpi_ctx_b, amount_for_b)?;
+            // amount_for_a = float_amount * (vault_a_exchange/vault_b_exchange);
+            msg!("we will do the A stuff here={}", 33);
+        } else {
+            // We want Mint B
+            // We want to transfer amount of A for B
+            // We have to remove amount from Customer Wallet A and send to Vault A
+            // We have to remove amount * exchange of 2 from Vault B and send to Customer Wallet B
 
+            let transfer_instruction = Transfer{
+                from: ctx.accounts.vault_a_customer.to_account_info(),
+                to: ctx.accounts.vault_a_pda.to_account_info(),
+                authority: ctx.accounts.customer.to_account_info(),
+            };
+            
+            let cpi_program = ctx.accounts.token_program.to_account_info();
+    
+            let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
+
+            
+            let mut amount_for_a = float_amount;
+            
+            anchor_spl::token::transfer(cpi_ctx, (amount_for_a as u64))?;
+
+            let transfer_instruction_b = Transfer{
+                from: ctx.accounts.vault_b_pda.to_account_info(),
+                to: ctx.accounts.vault_b_customer.to_account_info(),
+                authority: ctx.accounts.admin.to_account_info(),
+            };
+            
+            let cpi_program_b = ctx.accounts.token_program.to_account_info();
+
+            let cpi_ctx_b = CpiContext::new(cpi_program_b, transfer_instruction_b);
+
+            let mut amount_for_b = float_amount;
+
+            
+            amount_for_b = amount_for_b / (vault_a_exchange/vault_b_exchange);
+            
+            anchor_spl::token::transfer(cpi_ctx_b, amount_for_b as u64)?;
+        }
         Ok(())
     }
 }
@@ -431,4 +505,6 @@ pub enum ErrorCode {
     VaultAIncorrect,
     #[msg("Vault B key is incorrect.")]
     VaultBIncorrect,
+    #[msg("Mint not supported.")]
+    MintNotSupported,
 }
