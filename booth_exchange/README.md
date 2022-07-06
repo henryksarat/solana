@@ -1,4 +1,21 @@
-Two ways to run tests:
+## Implemented
+* Create Exchange Booth
+As an admin create an exchange rate between two tokens
+*Deposit to Excahnge Booth
+As an admin, deposit into the vault of both Mints in the Exchange Booth. This is using PDA's. (Program Derived Addresses)
+*Trade
+As a customer exchange between Token A and B or between Token B and A
+
+## TODO
+
+* Split Rust code into separate files
+* Refactor the smart contract code so there is less repeat code
+* Reduce the amount of Accounts passed into the Deposit and Trade instructions since a lot was passed into Create
+* Use the Echo Program I created to be the Oracle of what the exchange rate is
+* Refactor the Type Script tests since there is a lot of repeat code
+* Create basic web front end using React
+
+## Two ways to run tests:
 
 Option 1:
 ```
