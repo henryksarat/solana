@@ -133,9 +133,8 @@ pub mod booth_exchange {
         mint_to_get: Pubkey
     ) -> Result<()> {
         msg!("in trade");
-
         let float_amount: f32 = amount as f32;
-        
+
         let tweet = &mut ctx.accounts.data_location;
 
         if current_mint != tweet.mint_a && current_mint != tweet.mint_b {
@@ -151,102 +150,101 @@ pub mod booth_exchange {
         if mint_to_get == tweet.mint_b {
             want_to_get_mint_a = false;
         }
-        
-
-        msg!("with key={}", mint_to_get);
-        
-        
-        
-        msg!("mint A={}", tweet.mint_a);
-        msg!("mint B={}", tweet.mint_b);
 
         let mut split = tweet.oracle.split(":");
 
         let vault_a_exchange: f32 = split.next().unwrap().parse().unwrap();;
         let vault_b_exchange: f32 = split.next().unwrap().parse().unwrap();;
 
+        let admin_account: AccountInfo = ctx.accounts.admin.to_account_info();
+        let customer_account: AccountInfo = ctx.accounts.customer.to_account_info();
 
-        msg!("oracle={}", tweet.oracle);
-
-     
-        
-        // 5:20 = 5/20=0.25
-        // 
-        msg!("want_to_get_mint_a={}", want_to_get_mint_a);
         if want_to_get_mint_a == true {
             // We want Mint A
             // We want to transfer amount of B for A
             // We have to remove amount from Customer Wallet B and send to Vault B
-            // We have to remove amount * exchange of 2 from Vault A and send to Customer Wallet A
-            let transfer_instruction_b = Transfer{
-                from: ctx.accounts.vault_b_customer.to_account_info(),
-                to: ctx.accounts.vault_b_pda.to_account_info(),
-                authority: ctx.accounts.customer.to_account_info(),
-            };
-            
-            let cpi_program_b = ctx.accounts.token_program.to_account_info();
-
-            let cpi_ctx_b = CpiContext::new(cpi_program_b, transfer_instruction_b);
-
-            anchor_spl::token::transfer(cpi_ctx_b, float_amount as u64)?;
-
-
-            let transfer_instruction = Transfer{
-                from: ctx.accounts.vault_a_pda.to_account_info(),
-                to: ctx.accounts.vault_a_customer.to_account_info(),
-                authority: ctx.accounts.admin.to_account_info(),
-            };
-            
-            let cpi_program = ctx.accounts.token_program.to_account_info();
-    
-            let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
-
+            // We have to remove amount * (vault_a_exchange/vault_b_exchange)
             let amount_for_a = float_amount * (vault_a_exchange/vault_b_exchange);
             
-            anchor_spl::token::transfer(cpi_ctx, (amount_for_a as u64))?;
-
-            // amount_for_a = float_amount * (vault_a_exchange/vault_b_exchange);
-            msg!("we will do the A stuff here={}", 33);
+            let customer_wallet_to_remove_from: AccountInfo = ctx.accounts.vault_b_customer.to_account_info();
+            let vault_to_add_to: AccountInfo = ctx.accounts.vault_b_pda.to_account_info();
+            
+            let vault_to_remove_from: AccountInfo = ctx.accounts.vault_a_pda.to_account_info();
+            let customer_account_to_add_to: AccountInfo = ctx.accounts.vault_a_customer.to_account_info();
+            
+            return execute_between_accounts(
+                ctx,
+                customer_wallet_to_remove_from,
+                vault_to_add_to,
+                customer_account,
+                float_amount,
+                vault_to_remove_from,
+                customer_account_to_add_to,
+                admin_account,
+                amount_for_a
+            );
         } else {
             // We want Mint B
             // We want to transfer amount of A for B
             // We have to remove amount from Customer Wallet A and send to Vault A
-            // We have to remove amount * exchange of 2 from Vault B and send to Customer Wallet B
-
-            let transfer_instruction = Transfer{
-                from: ctx.accounts.vault_a_customer.to_account_info(),
-                to: ctx.accounts.vault_a_pda.to_account_info(),
-                authority: ctx.accounts.customer.to_account_info(),
-            };
+            // We have to remove amount / (vault_a_exchange/vault_b_exchange)
+            let amount_for_b = float_amount / (vault_a_exchange/vault_b_exchange);
+            let customer_wallet_to_remove_from: AccountInfo = ctx.accounts.vault_a_customer.to_account_info();
+            let customer_account_to_add_to: AccountInfo = ctx.accounts.vault_b_customer.to_account_info();
+            let vault_to_remove_from: AccountInfo = ctx.accounts.vault_b_pda.to_account_info();
+            let vault_to_add_to: AccountInfo = ctx.accounts.vault_a_pda.to_account_info();
             
-            let cpi_program = ctx.accounts.token_program.to_account_info();
-    
-            let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
-
-            
-            let mut amount_for_a = float_amount;
-            
-            anchor_spl::token::transfer(cpi_ctx, (amount_for_a as u64))?;
-
-            let transfer_instruction_b = Transfer{
-                from: ctx.accounts.vault_b_pda.to_account_info(),
-                to: ctx.accounts.vault_b_customer.to_account_info(),
-                authority: ctx.accounts.admin.to_account_info(),
-            };
-            
-            let cpi_program_b = ctx.accounts.token_program.to_account_info();
-
-            let cpi_ctx_b = CpiContext::new(cpi_program_b, transfer_instruction_b);
-
-            let mut amount_for_b = float_amount;
-
-            
-            amount_for_b = amount_for_b / (vault_a_exchange/vault_b_exchange);
-            
-            anchor_spl::token::transfer(cpi_ctx_b, amount_for_b as u64)?;
+            return execute_between_accounts(
+                ctx,
+                customer_wallet_to_remove_from,
+                vault_to_add_to,
+                customer_account,
+                float_amount,
+                vault_to_remove_from,
+                customer_account_to_add_to,
+                admin_account,
+                amount_for_b
+            );
         }
-        Ok(())
     }
+}
+
+fn execute_between_accounts<'info>(
+    ctx: Context<ExecuteTradeAccounts<'info>>,
+    customer_wallet_to_remove_from: AccountInfo<'info>,
+    vault_to_add_to: AccountInfo<'info>,
+    customer_account: AccountInfo<'info>,
+    amount_to_remove: f32,
+    vault_to_remove_from: AccountInfo<'info>,
+    customer_account_to_add_to: AccountInfo<'info>,
+    admin_account: AccountInfo<'info>,
+    amount_to_add: f32,
+) -> Result<()> {
+    let transfer_instruction_b = Transfer{
+        from: customer_wallet_to_remove_from,
+        to: vault_to_add_to,
+        authority: customer_account,
+    };
+    
+    let cpi_program_b = ctx.accounts.token_program.to_account_info();
+
+    let cpi_ctx_b = CpiContext::new(cpi_program_b, transfer_instruction_b);
+
+    anchor_spl::token::transfer(cpi_ctx_b, amount_to_remove as u64)?;
+
+    let transfer_instruction = Transfer{
+        from: vault_to_remove_from,
+        to: customer_account_to_add_to,
+        authority: admin_account,
+    };
+    
+    let cpi_program = ctx.accounts.token_program.to_account_info();
+
+    let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
+    
+    anchor_spl::token::transfer(cpi_ctx, (amount_to_add as u64))?;
+
+    Ok(())
 }
 
 #[derive(Accounts)]
