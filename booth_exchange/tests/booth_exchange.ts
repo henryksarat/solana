@@ -74,75 +74,30 @@ describe("exchange_booth", () => {
   })
 
   it('can create an exchange booth', async () => {
-    const key = anchor.AnchorProvider.env().wallet.publicKey;
-   
-    let mintA = await createMint(100)
-    let mintB = await createMint(250)
+    let result = await createExchangeBooth()
 
-    const admin_two: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
-
-    let [theKey, theBump] = (await PublicKey.findProgramAddress(
-      [
-        anchor.utils.bytes.utf8.encode("ebpda"),
-        mintA.mint.publicKey.toBuffer(),
-        mintB.mint.publicKey.toBuffer()
-      ],
-      program.programId
-    ));
-
-    let [vaultAPDAKey, _] = (await PublicKey.findProgramAddress(
-      [
-        anchor.utils.bytes.utf8.encode("EBVaultA"),
-        mintA.mint.publicKey.toBuffer(),
-      ],
-      program.programId
-    ));
-
-    let [vaultBPDAKey, s] = (await PublicKey.findProgramAddress(
-      [
-        anchor.utils.bytes.utf8.encode("EBVaultB"),
-        mintB.mint.publicKey.toBuffer(),
-      ],
-      program.programId
-    ));
+    const exchangeBoothAccount = await program.account.exchangeBooth.fetch(result.adminPdaKey);
     
-    await program.methods.create("A:B,1:2").accounts({
-      payer: key,
-      admin: admin_two.publicKey,
-      systemProgram: anchor.web3.SystemProgram.programId,
-      mintA: mintA.mint.publicKey,
-      mintB: mintB.mint.publicKey,
-      dataLocation: theKey,
-      vaultAPdaKey: vaultAPDAKey,
-      vaultBPdaKey: vaultBPDAKey,
-    }).signers([
-      admin_two
-    ]).rpc()
+    assert.equal(exchangeBoothAccount.payer.toBase58(), key.toBase58());
+    assert.equal(exchangeBoothAccount.admin.toBase58(), result.admin.publicKey.toBase58());
+    assert.equal(exchangeBoothAccount.programId.toBase58(), anchor.web3.SystemProgram.programId.toBase58());
+    assert.equal(exchangeBoothAccount.oracle, 'A:B,1:2');
+    assert.equal(exchangeBoothAccount.mintA.toBase58(), result.mintA.mint.publicKey.toBase58());
+    assert.equal(exchangeBoothAccount.mintB.toBase58(), result.mintB.mint.publicKey.toBase58());
 
-    const tweetAccount = await program.account.exchangeBooth.fetch(theKey);
-    
-    assert.equal(tweetAccount.payer.toBase58(), key.toBase58());
-    assert.equal(tweetAccount.admin.toBase58(), admin_two.publicKey.toBase58());
-    assert.equal(tweetAccount.programId.toBase58(), anchor.web3.SystemProgram.programId.toBase58());
-    assert.equal(tweetAccount.oracle, 'A:B,1:2');
-    assert.equal(tweetAccount.mintA.toBase58(), mintA.mint.publicKey.toBase58());
-    assert.equal(tweetAccount.mintB.toBase58(), mintB.mint.publicKey.toBase58());
+    assert.equal(exchangeBoothAccount.vaultA.toBase58(), result.vaultAPDAKey.toBase58());
+    assert.equal(exchangeBoothAccount.vaultB.toBase58(), result.vaultBPDAKey.toBase58());
 
-    assert.equal(tweetAccount.vaultA.toBase58(), vaultAPDAKey.toBase58());
-    assert.equal(tweetAccount.vaultB.toBase58(), vaultBPDAKey.toBase58());
-
-    assert.equal(tweetAccount.bump, theBump);
+    assert.equal(exchangeBoothAccount.bump, result.adminPdaBump);
   });
-
-  it('can deposit into an exchange booth', async () => {
-    const key = anchor.AnchorProvider.env().wallet.publicKey;
-   
+  
+  async function createExchangeBooth() {
     let mintA = await createMint(100)
     let mintB = await createMint(250)
 
-    const admin_two: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
+    const admin: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
 
-    let [theKey, _theBump] = (await PublicKey.findProgramAddress(
+    let [adminPdaKey, adminPdaBump] = (await PublicKey.findProgramAddress(
       [
         anchor.utils.bytes.utf8.encode("ebpda"),
         mintA.mint.publicKey.toBuffer(),
@@ -169,71 +124,83 @@ describe("exchange_booth", () => {
     
     await program.methods.create("A:B,1:2").accounts({
       payer: key,
-      admin: admin_two.publicKey,
+      admin: admin.publicKey,
       systemProgram: anchor.web3.SystemProgram.programId,
       mintA: mintA.mint.publicKey,
       mintB: mintB.mint.publicKey,
-      dataLocation: theKey,
+      dataLocation: adminPdaKey,
       vaultAPdaKey: vaultAPDAKey,
       vaultBPdaKey: vaultBPDAKey,
     }).signers([
-      admin_two
-    ]).rpc()
+      admin
+    ]).rpc()  
+
+    return {
+      mintA: mintA,
+      mintB: mintB,
+      admin: admin,
+      adminPdaKey: adminPdaKey,
+      adminPdaBump: adminPdaBump,
+      vaultAPDAKey: vaultAPDAKey,
+      vaultBPDAKey: vaultBPDAKey
+    }
+  }
+
+  it('can deposit into an exchange booth', async () => {   
+    let resultCreate = await createExchangeBooth()
 
     let vaultAATA = await getAssociatedTokenAddress(
-      mintA.mint.publicKey,
-      admin_two.publicKey
+      resultCreate.mintA.mint.publicKey,
+      resultCreate.admin.publicKey
     );
 
     let vaultBATA = await getAssociatedTokenAddress(
-      mintB.mint.publicKey,
-      admin_two.publicKey
+      resultCreate.mintB.mint.publicKey,
+      resultCreate.admin.publicKey
     );
 
     const mint_tx2 = new anchor.web3.Transaction().add(
       createAssociatedTokenAccountInstruction(
-        key, vaultAATA, admin_two.publicKey, mintA.mint.publicKey
+        key, vaultAATA, resultCreate.admin.publicKey, resultCreate.mintA.mint.publicKey
       ),
       createAssociatedTokenAccountInstruction(
-        key, vaultBATA, admin_two.publicKey, mintB.mint.publicKey
+        key, vaultBATA, resultCreate.admin.publicKey, resultCreate.mintB.mint.publicKey
       )
     );
 
     await anchor.AnchorProvider.env().sendAndConfirm(mint_tx2, []);
 
-    await quickTransfer(mintA.associated_token_account, vaultAATA, 15, key);
-    await quickTransfer(mintB.associated_token_account, vaultBATA, 12, key);
+    await quickTransfer(resultCreate.mintA.associated_token_account, vaultAATA, 15, key);
+    await quickTransfer(resultCreate.mintB.associated_token_account, vaultBATA, 12, key);
 
     assert.equal(await retrieve_amount_for_ata(vaultAATA), 15);
     assert.equal(await retrieve_amount_for_ata(vaultBATA), 12);
-    assert.equal(await retrieve_amount_for_ata(vaultAPDAKey), 0);
-    assert.equal(await retrieve_amount_for_ata(vaultBPDAKey), 0);
+    assert.equal(await retrieve_amount_for_ata(resultCreate.vaultAPDAKey), 0);
+    assert.equal(await retrieve_amount_for_ata(resultCreate.vaultBPDAKey), 0);
 
     await program.methods.deposit(new BN(1, 10), new BN(2, 10)).accounts({
       payer: key,
       systemProgram: anchor.web3.SystemProgram.programId,
-      mintA: mintA.mint.publicKey,
-      mintB: mintB.mint.publicKey,
+      mintA: resultCreate.mintA.mint.publicKey,
+      mintB: resultCreate.mintB.mint.publicKey,
       vaultATransferOutOf: vaultAATA,
       vaultBTransferOutOf: vaultBATA,
-      dataLocation: theKey,
-      vaultAPda: vaultAPDAKey,
-      vaultBPda: vaultBPDAKey,
-      admin: admin_two.publicKey,
+      dataLocation: resultCreate.adminPdaKey,
+      vaultAPda: resultCreate.vaultAPDAKey,
+      vaultBPda: resultCreate.vaultBPDAKey,
+      admin: resultCreate.admin.publicKey,
       programmId: program.programId,
-    }).signers([admin_two]).rpc()
+    }).signers([resultCreate.admin]).rpc()
 
 
     assert.equal(await retrieve_amount_for_ata(vaultAATA), 14);
-    assert.equal(await retrieve_amount_for_ata(vaultAPDAKey), 1);
+    assert.equal(await retrieve_amount_for_ata(resultCreate.vaultAPDAKey), 1);
 
     assert.equal(await retrieve_amount_for_ata(vaultBATA), 10);
-    assert.equal(await retrieve_amount_for_ata(vaultBPDAKey), 2);
+    assert.equal(await retrieve_amount_for_ata(resultCreate.vaultBPDAKey), 2);
   });
 
-  it('can execute a trade with mint A and wanting mint B', async () => {
-    const key = anchor.AnchorProvider.env().wallet.publicKey;
-   
+  it('can execute a trade with mint A and wanting mint B', async () => {   
     let mintA = await createMint(100)
     let mintB = await createMint(250)
 
@@ -400,8 +367,6 @@ describe("exchange_booth", () => {
   });
 
   it('can execute a trade with mint B and wanting mint A', async () => {
-    const key = anchor.AnchorProvider.env().wallet.publicKey;
-   
     let mintA = await createMint(100)
     let mintB = await createMint(250)
 
@@ -568,9 +533,7 @@ describe("exchange_booth", () => {
     assert.equal(await retrieve_amount_for_ata(vaultBPDAKey), 32);
   });
 
-  it('can fail when you try to deposit with the wrong vault PDAs', async () => {
-    const key = anchor.AnchorProvider.env().wallet.publicKey;
-   
+  it('can fail when you try to deposit with the wrong vault PDAs', async () => {   
     let mintA = await createMint(100)
     let mintB = await createMint(250)
 
@@ -721,10 +684,8 @@ describe("exchange_booth", () => {
   it('can create super simple account', async () => {
     const data_location: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
 
-    const realAdminKey = anchor.AnchorProvider.env().wallet.publicKey;
-
     await program.methods.superSimple().accounts({
-        admin: realAdminKey,
+        admin: key,
         dataLocation: data_location.publicKey,
       }).signers([
         data_location
