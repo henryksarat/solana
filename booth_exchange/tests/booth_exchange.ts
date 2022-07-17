@@ -34,6 +34,12 @@ describe("exchange_booth", () => {
     const minted = await retrieve_amount_for_ata(result.associated_token_account);
     assert.equal(minted, 12);
 
+    let decimals = (await programTokenMinter.provider.connection.getParsedAccountInfo(
+        result.mint.publicKey
+      )
+    ).value.data.parsed.info.decimals
+    assert(decimals, "6")
+
     let result2 = await createMint(20)
     const minted2 = await retrieve_amount_for_ata(result2.associated_token_account);
     assert.equal(minted2, 20);
@@ -74,14 +80,14 @@ describe("exchange_booth", () => {
   })
 
   it('can create an exchange booth', async () => {
-    let result = await createExchangeBooth("A:B,1:2")
+    let result = await createExchangeBooth("1:2")
 
     const exchangeBoothAccount = await program.account.exchangeBooth.fetch(result.adminPdaKey);
     
     assert.equal(exchangeBoothAccount.payer.toBase58(), key.toBase58());
     assert.equal(exchangeBoothAccount.admin.toBase58(), result.admin.publicKey.toBase58());
     assert.equal(exchangeBoothAccount.programId.toBase58(), anchor.web3.SystemProgram.programId.toBase58());
-    assert.equal(exchangeBoothAccount.oracle, 'A:B,1:2');
+    assert.equal(exchangeBoothAccount.oracle, '1:2');
     assert.equal(exchangeBoothAccount.mintA.toBase58(), result.mintA.mint.publicKey.toBase58());
     assert.equal(exchangeBoothAccount.mintB.toBase58(), result.mintB.mint.publicKey.toBase58());
 
@@ -91,8 +97,142 @@ describe("exchange_booth", () => {
     assert.equal(exchangeBoothAccount.bump, result.adminPdaBump);
   });
 
+  it('will fail on left of the colon in wrong format', async () => {
+    try {
+      await createExchangeBooth("a1:2")
+    } catch (error) {
+      assert.equal(
+        error.error.errorMessage, 
+        'Left exchange rate is in the incorrect format in the Oracle.'
+      );
+      return;
+    }
+
+    assert.fail('Should not get to this point')
+  });
+
+  it('will fail on right of the colon in wrong format', async () => {
+    try {
+      await createExchangeBooth("1:2b")
+    } catch (error) {
+      assert.equal(
+        error.error.errorMessage, 
+        'Right exchange rate is in the incorrect format in the Oracle.'
+      );
+      return;
+    }
+
+    assert.fail('Should not get to this point')
+  });
+
+  it('will fail because the exchange rate in the Oracle has no colons', async () => {
+    try {
+      await createExchangeBooth("12")
+    } catch (error) {
+      assert.equal(
+        error.error.errorMessage, 
+        'Format of the exchange rate in the oracle is incorrect.'
+      );
+      return;
+    }
+
+    assert.fail('Should not get to this point')
+  });
+
+  it('will fail because the exchange rate in the Oracle multiple colons', async () => {
+    try {
+      await createExchangeBooth("1:2:")
+    } catch (error) {
+      assert.equal(
+        error.error.errorMessage, 
+        'Format of the exchange rate in the oracle is incorrect.'
+      );
+      return;
+    }
+
+    assert.fail('Should not get to this point')
+  });
+
+  it('will create the Exchange because it is in the correct numerical formats', async () => {
+      let result = await createExchangeBooth("1:2");
+      let exchangeBoothAccount = await program.account.exchangeBooth.fetch(result.adminPdaKey);
+      assert.equal(exchangeBoothAccount.oracle, '1:2');
+
+      let result2 = await createExchangeBooth("1.0:2.2");
+      let exchangeBoothAccount2 = await program.account.exchangeBooth.fetch(result2.adminPdaKey);
+      assert.equal(exchangeBoothAccount2.oracle, '1:2.2');
+
+      let result3 = await createExchangeBooth("1.0:2");
+      let exchangeBoothAccount3 = await program.account.exchangeBooth.fetch(result3.adminPdaKey);
+      assert.equal(exchangeBoothAccount3.oracle, '1:2');
+
+      let result4 = await createExchangeBooth("1:2.2");
+      let exchangeBoothAccount4 = await program.account.exchangeBooth.fetch(result4.adminPdaKey);
+      assert.equal(exchangeBoothAccount4.oracle, '1:2.2');
+
+      let result5 = await createExchangeBooth(".1:2.2");
+      let exchangeBoothAccount5 = await program.account.exchangeBooth.fetch(result5.adminPdaKey);
+      assert.equal(exchangeBoothAccount5.oracle, '0.1:2.2');
+
+      let result6 = await createExchangeBooth("2.1:.2");
+      let exchangeBoothAccount6 = await program.account.exchangeBooth.fetch(result6.adminPdaKey);
+      assert.equal(exchangeBoothAccount6.oracle, '2.1:0.2');
+  });
+
+  it('cannot create an exchange booth with mints with two different decimals', async () => {
+    let mintA = await createMint(100, 2)
+    let mintB = await createMint(250, 3)
+
+    const admin: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
+
+    let [adminPdaKey, _adminPdaBump] = (await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("ebpda"),
+        mintA.mint.publicKey.toBuffer(),
+        mintB.mint.publicKey.toBuffer()
+      ],
+      program.programId
+    ));
+
+    let [vaultAPDAKey, _vaultAPDAKeyBump] = (await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("EBVaultA"),
+        mintA.mint.publicKey.toBuffer(),
+      ],
+      program.programId
+    ));
+
+    let [vaultBPDAKey, _vaultBPDAKeyBump] = (await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("EBVaultB"),
+        mintB.mint.publicKey.toBuffer(),
+      ],
+      program.programId
+    ));
+    
+    try {
+      await program.methods.create("1:2").accounts({
+        payer: key,
+        admin: admin.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        mintA: mintA.mint.publicKey,
+        mintB: mintB.mint.publicKey,
+        dataLocation: adminPdaKey,
+        vaultAPdaKey: vaultAPDAKey,
+        vaultBPdaKey: vaultBPDAKey,
+      }).signers([
+        admin
+      ]).rpc()  
+    } catch (error) {
+      assert.equal(error.error.errorMessage, 'Decimals of the mints is different.');
+      return;
+    }
+
+    assert.fail('Should not get to this point')
+  });
+
   it('can deposit into an exchange booth', async () => {   
-    let resultCreate = await createExchangeBooth("A:B,1:2")
+    let resultCreate = await createExchangeBooth("1:2")
 
     let transferToAdminOwnedMintAAccount = 15
     let transferToAdminOwnedMintBAccount = 12
@@ -392,7 +532,7 @@ describe("exchange_booth", () => {
     }
   }
 
-  async function createMint(amount) {
+  async function createMint(amount, decimals=6) {
     const mintKey: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
     const lamports: number = await programTokenMinter.provider.connection.getMinimumBalanceForRentExemption(
       MINT_SIZE
@@ -411,7 +551,7 @@ describe("exchange_booth", () => {
         lamports,
       }),
       createInitializeMintInstruction(
-        mintKey.publicKey, 6, key, key
+        mintKey.publicKey, decimals, key, key
       ),
       createAssociatedTokenAccountInstruction(
         key, associatedTokenAccount, key, mintKey.publicKey

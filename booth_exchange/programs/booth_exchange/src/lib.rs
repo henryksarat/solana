@@ -1,7 +1,11 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, MintTo, Transfer, TokenAccount};
 use anchor_spl::token;
+use anchor_lang::solana_program::program_pack::Pack;
 
+use spl_token::{
+    state::Mint
+};
 declare_id!("FS4tM81VusiHgaKe7Ar7X1fJesJCZho5CCWFELWcpckF");
 
 
@@ -22,6 +26,9 @@ pub mod booth_exchange {
         Ok(())
     }
 
+    // NOTE: I don't want to figure out the decimal math between
+    // two mints to do a fair exchange between them so I error
+    // if the decimals between two mints are not the same
     pub fn create(ctx: Context<ExchangeBoothAccounts>, oracle_data: String) -> Result<()> {
         msg!("in create");
         
@@ -35,13 +42,51 @@ pub mod booth_exchange {
         let vault_a = &ctx.accounts.vault_a_pda_key.to_account_info();
         let vault_b = &ctx.accounts.vault_b_pda_key.to_account_info();
 
+        let mint_a_data = spl_token::state::Mint::unpack_from_slice(*mint_a.data.borrow_mut()).unwrap();
+        let mint_b_data = spl_token::state::Mint::unpack_from_slice(*mint_b.data.borrow_mut()).unwrap();
+
+        if mint_a_data.decimals != mint_b_data.decimals {
+            return Err(ErrorCode::DecimalsBetweenMintsIsNotTheSame.into())
+        }
+
+        let split = oracle_data.split(":");
+        let vec_on_split = split.collect::<Vec<&str>>();
+
+        if vec_on_split.len() != 2 {
+            return Err(ErrorCode::OracleErrorFormat.into())
+        }
+
+        let mut oracle_formatted: String = "".to_owned();
+
+        let _ = match vec_on_split[0].parse::<f32>() {
+            Ok(v) => {
+                oracle_formatted.push_str(&v.to_string());
+                msg!("Left part in oracle is correct as {}", v);
+            },
+            Err(e) => {
+                return Err(ErrorCode::OracleErrorLeftFormat.into())
+            }
+        };
+
+        oracle_formatted.push_str(":");
+
+        let _ = match vec_on_split[1].parse::<f32>() {
+            Ok(v) => {
+                oracle_formatted.push_str(&v.to_string());
+                msg!("Right part in oracle is correct as {}", v);
+            },
+            Err(e) => {
+                return Err(ErrorCode::OracleErrorRightFormat.into())
+            }
+        };
+        
         tweet.payer = *payer.key;
         tweet.program_id = *system_program.key;
         tweet.mint_a = *mint_a.key;
         tweet.mint_b = *mint_b.key;
         tweet.vault_a = *vault_a.key;
         tweet.vault_b = *vault_b.key;
-        tweet.oracle = oracle_data;
+        tweet.oracle = oracle_formatted;
         tweet.admin = *admin.key;
         tweet.bump = *ctx.bumps.get("data_location").unwrap();
 
@@ -137,12 +182,24 @@ pub mod booth_exchange {
 
         let tweet = &mut ctx.accounts.data_location;
 
+        let mint_a = &mut ctx.accounts.mint_a;
+        let mint_b = &mut ctx.accounts.mint_b;
+
+        let mint_a_data = spl_token::state::Mint::unpack_from_slice(*mint_a.data.borrow_mut()).unwrap();
+        let mint_b_data = spl_token::state::Mint::unpack_from_slice(*mint_b.data.borrow_mut()).unwrap();
+       
         if current_mint != tweet.mint_a && current_mint != tweet.mint_b {
             return Err(ErrorCode::MintNotSupported.into())
         }
 
         if mint_to_get != tweet.mint_a && mint_to_get != tweet.mint_b {
             return Err(ErrorCode::MintNotSupported.into())
+        }
+
+        if mint_a_data.decimals != mint_b_data.decimals {
+            // This should actually never hit unless the check is removed
+            // from the exchange booth initilization
+            return Err(ErrorCode::DecimalsBetweenMintsIsNotTheSame.into())
         }
 
         let mut want_to_get_mint_a: bool = true;
@@ -278,6 +335,7 @@ pub struct ExecuteTradeAccounts<'info> {
     pub data_location: Account<'info, ExchangeBooth>,
 
     /// CHECK: Mint A Token
+    // pub mint_a: UncheckedAccount<'info>,
     pub mint_a: UncheckedAccount<'info>,
 
     /// CHECK: Mint B Token
@@ -484,19 +542,6 @@ impl SuperSimpleSave {
     const LEN: usize = DISCRIMINATOR_LENGTH + CALL_COUNT_LENGTH;
 }
 
-// #[derive(Accounts)]
-// pub struct TransferToken<'info> {
-//     pub token_program: Program<'info, Token>,
-//     /// CHECK: The associated token account that we are transferring the token from
-//     #[account(mut)]
-//     pub from: UncheckedAccount<'info>,
-//     /// CHECK: The associated token account that we are transferring the token to
-//     #[account(mut)]
-//     pub to: AccountInfo<'info>,
-//     // the authority of the from account 
-//     pub from_authority: Signer<'info>,
-// }
-
 #[error_code]
 pub enum ErrorCode {
     #[msg("Vault A key is incorrect.")]
@@ -505,4 +550,12 @@ pub enum ErrorCode {
     VaultBIncorrect,
     #[msg("Mint not supported.")]
     MintNotSupported,
+    #[msg("Decimals of the mints is different.")]
+    DecimalsBetweenMintsIsNotTheSame,
+    #[msg("Left exchange rate is in the incorrect format in the Oracle.")]
+    OracleErrorLeftFormat,
+    #[msg("Right exchange rate is in the incorrect format in the Oracle.")]
+    OracleErrorRightFormat,
+    #[msg("Format of the exchange rate in the oracle is incorrect.")]
+    OracleErrorFormat,
 }
