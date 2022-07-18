@@ -6,6 +6,25 @@ use anchor_lang::solana_program::program_pack::Pack;
 use spl_token::{
     state::Mint
 };
+
+
+
+
+// use solana_program::{
+//     account_info::{next_account_info, AccountInfo},
+//     entrypoint::ProgramResult,
+//     msg,
+//     program_error::ProgramError,
+//     pubkey::Pubkey,
+//     borsh::get_instance_packed_len,
+// };
+
+use std::str;
+
+
+
+
+
 declare_id!("FS4tM81VusiHgaKe7Ar7X1fJesJCZho5CCWFELWcpckF");
 
 
@@ -313,10 +332,44 @@ fn execute_between_accounts<'info>(
     let mut possible_fee = amount_to_add * fee;
     
     msg!("amount_to_add={}, fee={}, possible_fee={}", amount_to_add, fee, possible_fee);
-
-    anchor_spl::token::transfer(cpi_ctx, ((amount_to_add-possible_fee) as u64))?;
+    let amount_to_transfer = total_to_send_to_user_with_fees_taken_into_account(amount_to_add, fee);
+    anchor_spl::token::transfer(cpi_ctx, amount_to_transfer)?;
 
     Ok(())
+}
+
+// fn total_to_send_to_user_with_fees_taken_into_account(
+//     base_amount: f32,
+//     fee: f32
+// ) -> Result<u64> {
+//     let possible_fee = base_amount * fee;
+
+//     if (possible_fee < 1.0) {
+//         return Err(ErrorCode::MintNotSupported.into())
+//     }
+
+//     let mut new_amount = base_amount - possible_fee;
+
+//     if (new_amount % 1.0) != 0.0 {
+//         new_amount = new_amount.ceil()
+//     }
+
+//     return Ok(new_amount as u64)
+// }
+
+fn total_to_send_to_user_with_fees_taken_into_account(
+    base_amount: f32,
+    fee: f32
+) -> u64 {
+    let possible_fee = base_amount * fee;
+
+    let mut new_amount = base_amount - possible_fee;
+
+    // if (new_amount % 1.0) != 0.0 {
+    //     new_amount = new_amount.ceil()
+    // }
+
+    return new_amount as u64
 }
 
 #[derive(Accounts)]
@@ -577,4 +630,40 @@ pub enum ErrorCode {
     OracleErrorRightFormat,
     #[msg("Format of the exchange rate in the oracle is incorrect.")]
     OracleErrorFormat,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::mem;
+
+    #[test]
+    fn test_fee() {
+        let result = total_to_send_to_user_with_fees_taken_into_account(1000.0, 0.025);
+        assert_eq!(result, 975);
+
+        // let result = match total_to_send_to_user_with_fees_taken_into_account(1000.0, 0.025) {
+        //     Ok(v) => {
+        //         assert_eq!(v, 975);
+        //     },
+        //     Err(v) => {
+        //         assert_eq!(true, false);
+        //     }
+        // };
+    }
+
+    // #[test]
+    // fn test_fee_that_has_fraction() {
+    //     let result = total_to_send_to_user_with_fees_taken_into_account(100.0, 0.025);
+    //     assert_eq!(result, 98);
+
+    //     // let result = match total_to_send_to_user_with_fees_taken_into_account(100.0, 0.025) {
+    //     //     Ok(v) => {
+    //     //         assert_eq!(v, 98);
+    //     //     },
+    //     //     Err(v) => {
+    //     //         assert_eq!(true, false);
+    //     //     }
+    //     // };
+    // }
 }

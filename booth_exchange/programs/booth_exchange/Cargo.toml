@@ -23,4 +23,3 @@ anchor-lang = "0.24.2"
 anchor-spl = "0.24.2"
 spl-token = {version = "3.1.1", features = ["no-entrypoint"]}
 token-minter = { path = "../token-minter", features = ["cpi"]}
-

@@ -34,6 +34,7 @@ solana logs --url localhost
 Option 2:
 
 ```
+cargo test-bpf --manifest-path=./Cargo.toml
 anchor test
 ```
 
