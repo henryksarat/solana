@@ -10,8 +10,7 @@ import {
   createInitializeMintInstruction,
 } from "@solana/spl-token"; 
 import { PublicKey } from "@solana/web3.js";
-import { assert } from "chai";
-import NodeWallet from "@project-serum/anchor/dist/cjs/nodewallet";
+import { assert, expect } from "chai";
 
 const BN = require("bn.js");
 
@@ -95,6 +94,7 @@ describe("exchange_booth", () => {
     assert.equal(exchangeBoothAccount.vaultB.toBase58(), result.vaultBPDAKey.toBase58());
 
     assert.equal(exchangeBoothAccount.bump, result.adminPdaBump);
+    expect(exchangeBoothAccount.fee).to.be.closeTo(0.025, 0.000000001);
   });
 
   it('will fail on left of the colon in wrong format', async () => {
@@ -211,7 +211,7 @@ describe("exchange_booth", () => {
     ));
     
     try {
-      await program.methods.create("1:2").accounts({
+      await program.methods.create("1:2", 0.025).accounts({
         payer: key,
         admin: admin.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -606,7 +606,7 @@ describe("exchange_booth", () => {
       program.programId
     ));
     
-    await program.methods.create(oracle).accounts({
+    await program.methods.create(oracle, 0.025).accounts({
       payer: key,
       admin: admin.publicKey,
       systemProgram: anchor.web3.SystemProgram.programId,

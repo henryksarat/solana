@@ -29,7 +29,7 @@ pub mod booth_exchange {
     // NOTE: I don't want to figure out the decimal math between
     // two mints to do a fair exchange between them so I error
     // if the decimals between two mints are not the same
-    pub fn create(ctx: Context<ExchangeBoothAccounts>, oracle_data: String) -> Result<()> {
+    pub fn create(ctx: Context<ExchangeBoothAccounts>, oracle_data: String, fee: f32) -> Result<()> {
         msg!("in create");
         
         let tweet = &mut ctx.accounts.data_location;
@@ -89,6 +89,7 @@ pub mod booth_exchange {
         tweet.oracle = oracle_formatted;
         tweet.admin = *admin.key;
         tweet.bump = *ctx.bumps.get("data_location").unwrap();
+        tweet.fee = fee;
 
         Ok(())
     }
@@ -511,6 +512,7 @@ pub struct ExchangeBooth {
 
     pub program_id: Pubkey,
     pub bump: u8,
+    pub fee: f32
 }
 
 #[account]
@@ -518,12 +520,14 @@ pub struct SuperSimpleSave {
     pub call_count: i32,
 }
 
+// All sizes are in BYTES
 const BUMP_LENGTH: usize = 1;
 const DISCRIMINATOR_LENGTH: usize = 8; // Required to store the type of account
-const PUBLIC_KEY_LENGTH: usize = 32; // [u8, 32] - u8 is 8 bits and that is 1 byte. So a total of 32 bytes
+const PUBLIC_KEY_LENGTH: usize = 32; // [u8, 32] - u8 is 8 bits (1 byte). So a total of 32 bytes
 const CALL_COUNT_LENGTH: usize = 4;
 const STRING_LENGTH_PREFIX: usize = 4; // Stores the size of the string.
 const MAX_TOPIC_LENGTH: usize = 15 * 4; // 15 char max. A UTF-8 encoded chracter can be between 1-4 bytes each
+const FEE_LENGTH: usize = 4; // 32 bits but we want to know how many bytes. 32 bits is 4 bytes
 
 impl ExchangeBooth {
     const LEN: usize = DISCRIMINATOR_LENGTH
@@ -535,6 +539,7 @@ impl ExchangeBooth {
         + PUBLIC_KEY_LENGTH // Vault B.
         + PUBLIC_KEY_LENGTH // Program Id
         + BUMP_LENGTH
+        + FEE_LENGTH
         + STRING_LENGTH_PREFIX + MAX_TOPIC_LENGTH; // Topic.
 }
 
