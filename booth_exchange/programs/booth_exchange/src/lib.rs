@@ -172,6 +172,13 @@ pub mod booth_exchange {
         Ok(())
     }
 
+    // The fee calculation is as follows:
+    // The person trading pays the fee into the vault
+    // The fee will whatever percent set on create of the exchange booth
+    // The fee will be paid for in the mint_to_get Mint
+    // The fee must be at least "1"
+    // If the ending fee is a decimal, take the floor so we help the person using this smart contract
+    // The account doing the exchange will get the mint of mint_to_get, minus the fee
     pub fn execute_trade(
         ctx: Context<ExecuteTradeAccounts>, 
         amount: u64, 
@@ -217,6 +224,7 @@ pub mod booth_exchange {
         let admin_account: AccountInfo = ctx.accounts.admin.to_account_info();
         let customer_account: AccountInfo = ctx.accounts.customer.to_account_info();
 
+        let fee = tweet.fee;
         if want_to_get_mint_a == true {
             // We want Mint A
             // We want to transfer amount of B for A
@@ -239,7 +247,8 @@ pub mod booth_exchange {
                 vault_to_remove_from,
                 customer_account_to_add_to,
                 admin_account,
-                amount_for_a
+                amount_for_a,
+                fee,
             );
         } else {
             // We want Mint B
@@ -261,7 +270,8 @@ pub mod booth_exchange {
                 vault_to_remove_from,
                 customer_account_to_add_to,
                 admin_account,
-                amount_for_b
+                amount_for_b,
+                fee,
             );
         }
     }
@@ -277,6 +287,7 @@ fn execute_between_accounts<'info>(
     customer_account_to_add_to: AccountInfo<'info>,
     admin_account: AccountInfo<'info>,
     amount_to_add: f32,
+    fee: f32,
 ) -> Result<()> {
     let transfer_instruction_b = Transfer{
         from: customer_wallet_to_remove_from,
@@ -299,8 +310,11 @@ fn execute_between_accounts<'info>(
     let cpi_program = ctx.accounts.token_program.to_account_info();
 
     let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
+    let mut possible_fee = amount_to_add * fee;
     
-    anchor_spl::token::transfer(cpi_ctx, (amount_to_add as u64))?;
+    msg!("amount_to_add={}, fee={}, possible_fee={}", amount_to_add, fee, possible_fee);
+
+    anchor_spl::token::transfer(cpi_ctx, ((amount_to_add-possible_fee) as u64))?;
 
     Ok(())
 }

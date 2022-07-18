@@ -79,7 +79,7 @@ describe("exchange_booth", () => {
   })
 
   it('can create an exchange booth', async () => {
-    let result = await createExchangeBooth("1:2")
+    let result = await createExchangeBooth("1:2", 100, 250, 0.025)
 
     const exchangeBoothAccount = await program.account.exchangeBooth.fetch(result.adminPdaKey);
     
@@ -248,8 +248,69 @@ describe("exchange_booth", () => {
     )
   });
 
-  it('can execute a trade with mint A and wanting mint B', async () => {   
-    let resultCreate = await createExchangeBooth("1:2")
+  it('can execute a trade with mint A and wanting mint B and there is a fee that is larger than 1 and was not a fraction', async () => {   
+    let resultCreate = await createExchangeBooth("1:2", 10000, 20000, 0.025)
+
+    let transferToAdminOwnedMintAAccount = 5000
+    let transferToAdminOwnedMintBAccount = 5000
+    let depositToVaultA = 3000
+    let depositToVaultB = 3000
+
+    let resultDeposit = await createAssociatedTokenAccountsAndDepositAndAssertCorrectness(
+      resultCreate=resultCreate,
+      transferToAdminOwnedMintAAccount,
+      transferToAdminOwnedMintBAccount,
+      depositToVaultA,
+      depositToVaultB,
+    )
+
+    const otherUser = await createUserAndATAAccountsForMintAandMintB(
+      resultCreate.mintA, 
+      resultCreate.mintB
+    )
+
+    await quickTransfer(resultCreate.mintA.associated_token_account, otherUser.someUserMintA_ATA, 1000, key);
+    await quickTransfer(resultCreate.mintB.associated_token_account, otherUser.someUserMintB_ATA, 1000, key);
+
+    assert.equal(await retrieve_amount_for_ata(otherUser.someUserMintA_ATA), 1000);
+    assert.equal(await retrieve_amount_for_ata(resultDeposit.vaultAATA), 2000);
+    assert.equal(await retrieve_amount_for_ata(resultCreate.vaultAPDAKey), 3000);
+
+    assert.equal(await retrieve_amount_for_ata(otherUser.someUserMintB_ATA), 1000);
+    assert.equal(await retrieve_amount_for_ata(resultDeposit.vaultBATA), 2000);
+    assert.equal(await retrieve_amount_for_ata(resultCreate.vaultBPDAKey), 3000);
+
+    await program.methods.executeTrade(
+      new BN(100, 10),
+      resultCreate.mintA.mint.publicKey,
+      resultCreate.mintB.mint.publicKey
+    ).accounts({
+      payer: key,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      mintA: resultCreate.mintA.mint.publicKey,
+      mintB: resultCreate.mintB.mint.publicKey,
+      vaultACustomer: otherUser.someUserMintA_ATA,
+      vaultBCustomer: otherUser.someUserMintB_ATA,
+      dataLocation: resultCreate.adminPdaKey,
+      vaultAPda: resultCreate.vaultAPDAKey,
+      vaultBPda: resultCreate.vaultBPDAKey,
+      admin: resultCreate.admin.publicKey,
+      programmId: program.programId,
+      customer: otherUser.someUserAccount.publicKey
+    }).signers([resultCreate.admin, otherUser.someUserAccount]).rpc()
+
+    assert.equal(await retrieve_amount_for_ata(resultDeposit.vaultAATA), 2000); // not touched anymore on trade
+    assert.equal(await retrieve_amount_for_ata(resultDeposit.vaultBATA), 2000); // not touched anymore on trade
+
+    assert.equal(await retrieve_amount_for_ata(otherUser.someUserMintA_ATA), 900);
+    assert.equal(await retrieve_amount_for_ata(resultCreate.vaultAPDAKey), 3100);
+
+    assert.equal(await retrieve_amount_for_ata(otherUser.someUserMintB_ATA), 1195);
+    assert.equal(await retrieve_amount_for_ata(resultCreate.vaultBPDAKey), 2805);
+  });
+
+  it('can execute a trade with mint A and wanting mint B and no fee is included', async () => {   
+    let resultCreate = await createExchangeBooth("1:2", 100, 250, 0.0)
 
     let transferToAdminOwnedMintAAccount = 50
     let transferToAdminOwnedMintBAccount = 80
@@ -575,9 +636,9 @@ describe("exchange_booth", () => {
     }
   }
 
-  async function createExchangeBooth(oracle) {
-    let mintA = await createMint(100)
-    let mintB = await createMint(250)
+  async function createExchangeBooth(oracle, mintAmount = 100, mintBAmount = 250, fee = 0.0) {
+    let mintA = await createMint(mintAmount)
+    let mintB = await createMint(mintBAmount)
 
     const admin: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
 
@@ -606,7 +667,7 @@ describe("exchange_booth", () => {
       program.programId
     ));
     
-    await program.methods.create(oracle, 0.025).accounts({
+    await program.methods.create(oracle, fee).accounts({
       payer: key,
       admin: admin.publicKey,
       systemProgram: anchor.web3.SystemProgram.programId,
