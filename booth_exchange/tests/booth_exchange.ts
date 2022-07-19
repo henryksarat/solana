@@ -309,6 +309,65 @@ describe("exchange_booth", () => {
     assert.equal(await retrieve_amount_for_ata(resultCreate.vaultBPDAKey), 2805);
   });
 
+  it('it can execute a trade with mint A and wanting mint B because the fee would be too small', async () => {   
+    let resultCreate = await createExchangeBooth("1:2", 100, 250, 0.1)
+
+    let transferToAdminOwnedMintAAccount = 50
+    let transferToAdminOwnedMintBAccount = 80
+    let depositToVaultA = 20
+    let depositToVaultB = 30
+
+    let resultDeposit = await createAssociatedTokenAccountsAndDepositAndAssertCorrectness(
+      resultCreate=resultCreate,
+      transferToAdminOwnedMintAAccount,
+      transferToAdminOwnedMintBAccount,
+      depositToVaultA,
+      depositToVaultB,
+    )
+
+    const otherUser = await createUserAndATAAccountsForMintAandMintB(
+      resultCreate.mintA, 
+      resultCreate.mintB
+    )
+
+    await quickTransfer(resultCreate.mintA.associated_token_account, otherUser.someUserMintA_ATA, 3, key);
+    await quickTransfer(resultCreate.mintB.associated_token_account, otherUser.someUserMintB_ATA, 17, key);
+
+    assert.equal(await retrieve_amount_for_ata(otherUser.someUserMintA_ATA), 3);
+    assert.equal(await retrieve_amount_for_ata(resultDeposit.vaultAATA), 30);
+    assert.equal(await retrieve_amount_for_ata(resultCreate.vaultAPDAKey), 20);
+
+    assert.equal(await retrieve_amount_for_ata(otherUser.someUserMintB_ATA), 17);
+    assert.equal(await retrieve_amount_for_ata(resultDeposit.vaultBATA), 50);
+    assert.equal(await retrieve_amount_for_ata(resultCreate.vaultBPDAKey), 30);
+
+    try {
+      await program.methods.executeTrade(
+        new BN(2, 10),
+        resultCreate.mintA.mint.publicKey,
+        resultCreate.mintB.mint.publicKey
+      ).accounts({
+        payer: key,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        mintA: resultCreate.mintA.mint.publicKey,
+        mintB: resultCreate.mintB.mint.publicKey,
+        vaultACustomer: otherUser.someUserMintA_ATA,
+        vaultBCustomer: otherUser.someUserMintB_ATA,
+        dataLocation: resultCreate.adminPdaKey,
+        vaultAPda: resultCreate.vaultAPDAKey,
+        vaultBPda: resultCreate.vaultBPDAKey,
+        admin: resultCreate.admin.publicKey,
+        programmId: program.programId,
+        customer: otherUser.someUserAccount.publicKey
+      }).signers([resultCreate.admin, otherUser.someUserAccount]).rpc()
+    } catch (error) {
+      assert.equal(error.error.errorMessage, 'Fee amount too small.');
+      return;
+    }
+
+    assert.fail('Should not get to this point')
+  });
+
   it('can execute a trade with mint A and wanting mint B and no fee is included', async () => {   
     let resultCreate = await createExchangeBooth("1:2", 100, 250, 0.0)
 

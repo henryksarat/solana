@@ -7,23 +7,7 @@ use spl_token::{
     state::Mint
 };
 
-
-
-
-// use solana_program::{
-//     account_info::{next_account_info, AccountInfo},
-//     entrypoint::ProgramResult,
-//     msg,
-//     program_error::ProgramError,
-//     pubkey::Pubkey,
-//     borsh::get_instance_packed_len,
-// };
-
 use std::str;
-
-
-
-
 
 declare_id!("FS4tM81VusiHgaKe7Ar7X1fJesJCZho5CCWFELWcpckF");
 
@@ -329,47 +313,30 @@ fn execute_between_accounts<'info>(
     let cpi_program = ctx.accounts.token_program.to_account_info();
 
     let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
-    let mut possible_fee = amount_to_add * fee;
     
-    msg!("amount_to_add={}, fee={}, possible_fee={}", amount_to_add, fee, possible_fee);
-    let amount_to_transfer = total_to_send_to_user_with_fees_taken_into_account(amount_to_add, fee);
+    let amount_to_transfer = total_to_send_to_user_with_fees_taken_into_account(amount_to_add, fee)?;
     anchor_spl::token::transfer(cpi_ctx, amount_to_transfer)?;
 
     Ok(())
 }
 
-// fn total_to_send_to_user_with_fees_taken_into_account(
-//     base_amount: f32,
-//     fee: f32
-// ) -> Result<u64> {
-//     let possible_fee = base_amount * fee;
-
-//     if (possible_fee < 1.0) {
-//         return Err(ErrorCode::MintNotSupported.into())
-//     }
-
-//     let mut new_amount = base_amount - possible_fee;
-
-//     if (new_amount % 1.0) != 0.0 {
-//         new_amount = new_amount.ceil()
-//     }
-
-//     return Ok(new_amount as u64)
-// }
-
 fn total_to_send_to_user_with_fees_taken_into_account(
     base_amount: f32,
     fee: f32
-) -> u64 {
+) -> Result<u64> {
     let possible_fee = base_amount * fee;
 
-    let mut new_amount = base_amount - possible_fee;
+    if fee != 0.0 && possible_fee < 1.0 {
+        return Err(ErrorCode::FeeAmountTooSmall.into())
+    }
 
-    // if (new_amount % 1.0) != 0.0 {
-    //     new_amount = new_amount.ceil()
-    // }
+    let mut new_amount:f32 = base_amount - possible_fee;
 
-    return new_amount as u64
+    if (new_amount % 1.0) != 0.0 {
+        new_amount = libm::ceil(new_amount as f64) as f32
+    }
+
+    return Ok(new_amount as u64)
 }
 
 #[derive(Accounts)]
@@ -630,6 +597,8 @@ pub enum ErrorCode {
     OracleErrorRightFormat,
     #[msg("Format of the exchange rate in the oracle is incorrect.")]
     OracleErrorFormat,
+    #[msg("Fee amount too small.")]
+    FeeAmountTooSmall
 }
 
 #[cfg(test)]
@@ -640,30 +609,36 @@ mod test {
     #[test]
     fn test_fee() {
         let result = total_to_send_to_user_with_fees_taken_into_account(1000.0, 0.025);
-        assert_eq!(result, 975);
-
-        // let result = match total_to_send_to_user_with_fees_taken_into_account(1000.0, 0.025) {
-        //     Ok(v) => {
-        //         assert_eq!(v, 975);
-        //     },
-        //     Err(v) => {
-        //         assert_eq!(true, false);
-        //     }
-        // };
+        assert_eq!(result.unwrap(), 975)
     }
 
-    // #[test]
-    // fn test_fee_that_has_fraction() {
-    //     let result = total_to_send_to_user_with_fees_taken_into_account(100.0, 0.025);
-    //     assert_eq!(result, 98);
+    #[test]
+    fn test_fee_that_has_fraction() {
+        let result = total_to_send_to_user_with_fees_taken_into_account(100.0, 0.025);
+        assert_eq!(result.unwrap(), 98);
+    }
 
-    //     // let result = match total_to_send_to_user_with_fees_taken_into_account(100.0, 0.025) {
-    //     //     Ok(v) => {
-    //     //         assert_eq!(v, 98);
-    //     //     },
-    //     //     Err(v) => {
-    //     //         assert_eq!(true, false);
-    //     //     }
-    //     // };
-    // }
+    #[test]
+    fn test_fee_that_is_almost_too_small_at_one() {
+        let result = total_to_send_to_user_with_fees_taken_into_account(100.0, 0.01);
+        assert_eq!(result.unwrap(), 99);
+    }
+
+    #[test]
+    fn test_fee_that_is_just_too_small_and_is_under_1() {
+        let result = total_to_send_to_user_with_fees_taken_into_account(99.9, 0.01);
+        assert_eq!(result.is_err(), true);
+    }
+
+    #[test]
+    fn test_fee_that_is_just_too_small_but_allowed_since_fee_is_0() {
+        let result =  total_to_send_to_user_with_fees_taken_into_account(99.9, 0.00);
+        assert_eq!(result.unwrap(), 100);
+    }
+
+    #[test]
+    fn test_fee_that_is_100_percent() {
+        let result =  total_to_send_to_user_with_fees_taken_into_account(100.0, 1.0);
+        assert_eq!(result.unwrap(), 0);
+    }
 }
