@@ -26,6 +26,7 @@ pub mod booth_exchange {
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        msg!("Executed initialize!!!");
         Ok(())
     }
 
@@ -97,11 +98,12 @@ pub mod booth_exchange {
         Ok(())
     }
 
-    pub fn super_simple(ctx: Context<SuperSimpleLengthAccounts>) -> Result<()> {
+    pub fn super_simple(ctx: Context<SuperSimpleLengthAccounts>, message: String) -> Result<()> {
         msg!("in super simple");
         
-        let tweet = &mut ctx.accounts.data_location;
-        tweet.call_count = 59;
+        let data_location = &mut ctx.accounts.data_location;
+        data_location.call_count = 59;
+        data_location.message = message;
 
         Ok(())
     }
@@ -552,6 +554,7 @@ pub struct ExchangeBooth {
 #[account]
 pub struct SuperSimpleSave {
     pub call_count: i32,
+    pub message: String,
 }
 
 // All sizes are in BYTES
@@ -562,6 +565,7 @@ const CALL_COUNT_LENGTH: usize = 4;
 const STRING_LENGTH_PREFIX: usize = 4; // Stores the size of the string.
 const MAX_TOPIC_LENGTH: usize = 15 * 4; // 15 char max. A UTF-8 encoded chracter can be between 1-4 bytes each
 const FEE_LENGTH: usize = 4; // 32 bits but we want to know how many bytes. 32 bits is 4 bytes
+const SIMPLE_SAVE_LENGTH: usize = 10 * 4; // 15 char max. A UTF-8 encoded chracter can be between 1-4 bytes each
 
 impl ExchangeBooth {
     const LEN: usize = DISCRIMINATOR_LENGTH
@@ -578,7 +582,10 @@ impl ExchangeBooth {
 }
 
 impl SuperSimpleSave {
-    const LEN: usize = DISCRIMINATOR_LENGTH + CALL_COUNT_LENGTH;
+    const LEN: usize = DISCRIMINATOR_LENGTH 
+    + CALL_COUNT_LENGTH 
+    + STRING_LENGTH_PREFIX 
+    + SIMPLE_SAVE_LENGTH;
 }
 
 #[error_code]

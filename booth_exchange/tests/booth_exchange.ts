@@ -601,7 +601,7 @@ describe("exchange_booth", () => {
   it('can create super simple account', async () => {
     const data_location: anchor.web3.Keypair = anchor.web3.Keypair.generate();  
 
-    await program.methods.superSimple().accounts({
+    await program.methods.superSimple("hi there").accounts({
         admin: key,
         dataLocation: data_location.publicKey,
       }).signers([
@@ -612,6 +612,7 @@ describe("exchange_booth", () => {
     const tweetAccount = await program.account.superSimpleSave.fetch(data_location.publicKey);
     
     assert.equal(tweetAccount.callCount, 59);
+    assert.equal(tweetAccount.message, "hi there");
   });
 
   async function createUserAndATAAccountsForMintAandMintB(mintA, mintB) {

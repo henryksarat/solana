@@ -1,7 +1,12 @@
 ## Implemented
+### Smart contract:
 * Create Exchange Booth - As an admin create an exchange rate between two tokens
 * Deposit to Excahnge Booth - As an admin, deposit into the vault of both Mints in the Exchange Booth. This is using PDA's. (Program Derived Addresses)
 * Trade - As a customer exchange between Token A and B or between Token B and A
+
+### UI:
+* Simple react app that simply allows connection to the Phantom Wallet
+* Executes against one of the smart contract actions to save a string and retrieve the string
 
 ## TODO
 
@@ -46,3 +51,4 @@ https://github.com/coral-xyz/anchor/pull/1380
 * Change log of anchor since there may be breaking changes
 https://github.com/coral-xyz/anchor/blob/master/CHANGELOG.md
 * https://github.com/clague17/sol-bootcamp-exchange/blob/main/program/src/processor/initialize_exchange_booth.rs
+* https://dev.to/edge-and-node/the-complete-guide-to-full-stack-solana-development-with-react-anchor-rust-and-phantom-3291
