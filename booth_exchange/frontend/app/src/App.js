@@ -1,4 +1,5 @@
 import './App.css';
+import React from 'react';
 import { useState } from 'react';
 import { Connection, PublicKey } from '@solana/web3.js';
 // import {
@@ -26,8 +27,20 @@ const opts = {
 // const programID = new PublicKey(idl.metadata.address);
 const programID = new PublicKey("FS4tM81VusiHgaKe7Ar7X1fJesJCZho5CCWFELWcpckF");
 
+class DisplaySomething extends React.Component {
+  render() {
+   return (
+       <label>
+         <p>{this.props.message}</p>
+       </label>
+   );
+ }
+}
+
 function App() {
   const [value, setValue] = useState(null);
+  const [savedMessage, setSavedMessage] = useState(null);
+  const [toSave, setToSave] = useState(null);
   const wallet = useWallet();
 
   async function getProvider() {
@@ -48,7 +61,7 @@ function App() {
     const program = new Program(idl, programID, provider);
     try {
       await program.rpc.initialize();
-      await program.rpc.superSimple("watch this", {
+      await program.rpc.superSimple(toSave, {
         accounts: {
           dataLocation: baseAccount.publicKey,
           admin: provider.wallet.publicKey,
@@ -62,11 +75,19 @@ function App() {
       console.log("Call count in the smart contract:" + account.callCount.toString());
       console.log("What is stored in the smart contract:" + account.message.toString());
 
+      setSavedMessage(account.message.toString());
+
       console.log('Anchor works')
     } catch (err) {
       console.log("Transaction error: ", err);
     }
   }
+
+  async function handleChange(e){
+    setToSave(e.target.value);
+    console.log('set to save = ' + e.target.value);
+  }
+  
 
   // async function increment() {
   //   const provider = await getProvider();
@@ -99,7 +120,10 @@ function App() {
   } else {
     return (
       <div className="App">
+        
+        <DisplaySomething message={savedMessage}></DisplaySomething>
         <div>
+        <input type="text" name="messageToStore" onChange={handleChange}/>
           {
             !value && (<button onClick={createCounter}>Execute</button>)
           }
