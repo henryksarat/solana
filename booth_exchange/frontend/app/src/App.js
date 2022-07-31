@@ -1,17 +1,38 @@
 import './App.css';
 import React from 'react';
+// import * as anchor from "@project-serum/anchor";
 import { useState } from 'react';
-import { Connection, PublicKey } from '@solana/web3.js';
-// import {
-//   Program, Provider, web3
-// } from '@project-serum/anchor';
+import { Connection, PublicKey, LAMPORTS_PER_SOL, clusterApiUrl } from '@solana/web3.js';
+
 import { Program, AnchorProvider, web3 } from '@project-serum/anchor';
 import idl from './idl.json';
 
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { useWallet, WalletProvider, ConnectionProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+
+import {
+  createMint,
+  TOKEN_PROGRAM_ID,
+  MINT_SIZE,
+  createAssociatedTokenAccountInstruction,
+  getAssociatedTokenAddress,
+  createInitializeMintInstruction,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+  getAccount,
+  Account,
+  transfer
+} from "@solana/spl-token"; 
 require('@solana/wallet-adapter-react-ui/styles.css');
+// import {
+//   Token,
+//   TOKEN_PROGRAM_ID,
+//   ASSOCIATED_TOKEN_PROGRAM_ID,
+// } from "@solana/spl-token";
+
+
 
 const wallets = [
   /* view list of available wallets at https://github.com/solana-labs/wallet-adapter#wallets */
@@ -46,8 +67,9 @@ function App() {
   async function getProvider() {
     /* create the provider and return it to the caller */
     /* network set to local network for now */
-    const network = "http://127.0.0.1:8899";
-    const connection = new Connection(network, opts.preflightCommitment);
+    // const network = "http://127.0.0.1:8899";
+    // const connection = new Connection(network, opts.preflightCommitment);
+    const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
 
     const provider = new AnchorProvider(
       connection, wallet, opts.preflightCommitment,
@@ -83,6 +105,105 @@ function App() {
     }
   }
 
+  async function createMintHenryk() {    
+    const provider = await getProvider()
+    /* create the program interface combining the idl, program ID, and provider */
+    const program = new Program(idl, programID, provider);
+    
+    console.log('create mint')
+
+    // const network = "http://127.0.0.1:8899";
+    const network = "https://api.devnet.solana.com/";
+    // const connection = new Connection(network, opts.preflightCommitment);
+    const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
+
+    const fromWallet = Keypair.generate();
+
+    const fromAirdropSignature = await connection.requestAirdrop(fromWallet.publicKey, 2*LAMPORTS_PER_SOL);
+    // await connection.requestAirdrop(fromWallet.publicKey, 2*LAMPORTS_PER_SOL);
+    // const fromAirdropSignature = await connection.requestAirdrop(provider.wallet.publicKey, 2*LAMPORTS_PER_SOL);
+    const result = await connection.confirmTransaction(fromAirdropSignature);
+
+    console.log("fromAirdropSignature="+fromAirdropSignature)
+    console.log("result="+result)
+
+
+    let mintA = await createMint(
+      connection,
+      fromWallet,
+      fromWallet.publicKey,
+      null,
+      9, // 9 decimals
+    );
+
+    console.log(`Create token: ${mintA.toBase58()}`);
+
+    let fromTokenAccount = await getOrCreateAssociatedTokenAccount(
+      connection,
+      fromWallet,
+      mintA,
+      fromWallet.publicKey
+    );
+   
+    console.log(`Create Token Account: ${fromTokenAccount.address.toBase58()}`);
+
+    let tokenAccountInfo = await getAccount(connection, fromTokenAccount.address);
+		console.log(tokenAccountInfo.amount);
+
+    let signature = await mintTo(
+      connection,
+      fromWallet,
+      mintA,
+      fromTokenAccount.address,
+      fromWallet.publicKey,
+      100,
+      [fromWallet]
+    );
+
+    tokenAccountInfo = await getAccount(connection, fromTokenAccount.address);
+		console.log(tokenAccountInfo.amount);
+
+    console.log(`Mint to signature: ${signature}`);
+
+    let toTokenAccount = await getOrCreateAssociatedTokenAccount(
+      connection, 
+      fromWallet, 
+      mintA, 
+      provider.wallet.publicKey
+    );
+
+    console.log(`toTokenAccount ${toTokenAccount.address}`);
+
+
+  let toTokenMintA_Info = await getAccount(connection, toTokenAccount.address);
+
+  console.log("toTokenMintA_Info=" + toTokenMintA_Info.amount)
+  signature = await transfer(
+    connection,
+    fromWallet,
+    fromTokenAccount.address,
+    toTokenAccount.address,
+    fromWallet.publicKey,
+    10
+  );
+
+
+
+    console.log(`transfer: ${signature}`);
+
+    toTokenMintA_Info = await getAccount(connection, toTokenAccount.address);
+    console.log("toTokenMintA_Info=" + toTokenMintA_Info.amount)
+
+
+    tokenAccountInfo = await getAccount(connection, fromTokenAccount.address);
+		console.log("tokenAccountInfo=" + tokenAccountInfo.amount);
+  }
+
+async function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
   async function handleChange(e){
     setToSave(e.target.value);
     console.log('set to save = ' + e.target.value);
@@ -135,7 +256,11 @@ function App() {
             value && value >= Number(0) ? (
               <h2>{value}</h2>
             ) : (
-              <h3>Click the button to execute the smart contract</h3>
+              <h3>
+                <button onClick={createMintHenryk}>Create mint</button>
+                
+                Click the button to execute the smart contract
+                </h3>
             )
           }
         </div>
