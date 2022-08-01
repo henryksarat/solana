@@ -58,5 +58,18 @@ solana address -k /Users/{name}/.config/solana/id.json
 solana transfer --from localkey.json {public_key} 18
 ```
 
+* Change environment*
+```
+solana config set --url devnet
+solana config set --url localhost
+```
+
 # Helpful articles/git requests
 * Deploy issue to devnet because .so target file to deploy was > 400KB: https://github.com/solana-labs/solana/issues/23427
+* Using PDAs: https://book.anchor-lang.com/anchor_in_depth/PDAs.html#how-to-build-pda-hashmaps-in-anchor
+* Github request that caused change that removed setting a bump which caused a lot of confusion for me, but it let me to a good tutorial
+https://github.com/coral-xyz/anchor/pull/1380 
+* Change log of anchor since there may be breaking changes:
+https://github.com/coral-xyz/anchor/blob/master/CHANGELOG.md
+* https://github.com/clague17/sol-bootcamp-exchange/blob/main/program/src/processor/initialize_exchange_booth.rs
+* https://dev.to/edge-and-node/the-complete-guide-to-full-stack-solana-development-with-react-anchor-rust-and-phantom-3291
