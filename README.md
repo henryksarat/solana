@@ -22,3 +22,37 @@ Sample rust examples for myself while learning the language
 # token_contract
 
 A smart contract written as a wrapper around mint and transfer using Type Script and anchor.
+
+# Helpful Solana commands
+
+* Recover lost SOL from a deploy *
+
+```
+solana-keygen recover -o recover.json --force
+solana program close recover.json
+```
+
+* Get around rate limit on devnet *
+
+```
+# make a new key
+solana-keygen new -o localkey.json
+
+# get public key
+solana address -k localkey.json
+
+# airdrop a bunch of SOL
+solana airdrop 2 {public_key}
+solana airdrop 2 {public_key}
+solana airdrop 2 {public_key}
+solana airdrop 2 {public_key}
+solana airdrop 2 {public_key}
+solana airdrop 2 {public_key}
+solana airdrop 2 {public_key}
+solana airdrop 2 {public_key}
+solana airdrop 2 {public_key}
+solana airdrop 2 {public_key}
+
+# transfer from the key just made to the address locally
+solana address -k /Users/{name}/.config/solana/id.json
+solana transfer --from localkey.json {public_key} 18
