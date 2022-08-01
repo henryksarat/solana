@@ -65,8 +65,10 @@ function App() {
   const wallet = useWallet();
 
   async function getProvider() {
-    const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
-
+    // const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
+    const network = "http://127.0.0.1:8899";
+    const connection = new Connection(network, opts.preflightCommitment);
+    
     const provider = new AnchorProvider(
       connection, wallet, opts.preflightCommitment,
     );
