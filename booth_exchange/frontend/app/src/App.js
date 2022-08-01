@@ -65,10 +65,6 @@ function App() {
   const wallet = useWallet();
 
   async function getProvider() {
-    /* create the provider and return it to the caller */
-    /* network set to local network for now */
-    // const network = "http://127.0.0.1:8899";
-    // const connection = new Connection(network, opts.preflightCommitment);
     const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
 
     const provider = new AnchorProvider(
@@ -112,21 +108,16 @@ function App() {
     
     console.log('create mint')
 
-    // const network = "http://127.0.0.1:8899";
-    const network = "https://api.devnet.solana.com/";
-    // const connection = new Connection(network, opts.preflightCommitment);
-    const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
+    const connection = provider.connection;
 
     const fromWallet = Keypair.generate();
 
     const fromAirdropSignature = await connection.requestAirdrop(fromWallet.publicKey, 2*LAMPORTS_PER_SOL);
-    // await connection.requestAirdrop(fromWallet.publicKey, 2*LAMPORTS_PER_SOL);
-    // const fromAirdropSignature = await connection.requestAirdrop(provider.wallet.publicKey, 2*LAMPORTS_PER_SOL);
+    await connection.requestAirdrop(fromWallet.publicKey, 2*LAMPORTS_PER_SOL);
     const result = await connection.confirmTransaction(fromAirdropSignature);
 
     console.log("fromAirdropSignature="+fromAirdropSignature)
     console.log("result="+result)
-
 
     let mintA = await createMint(
       connection,
@@ -187,8 +178,6 @@ function App() {
     10
   );
 
-
-
     console.log(`transfer: ${signature}`);
 
     toTokenMintA_Info = await getAccount(connection, toTokenAccount.address);
@@ -208,28 +197,6 @@ async function sleep(ms) {
     setToSave(e.target.value);
     console.log('set to save = ' + e.target.value);
   }
-  
-
-  // async function increment() {
-  //   const provider = await getProvider();
-  //   const program = new Program(idl, programID, provider);
-  //   // await program.rpc.increment({
-  //   //   accounts: {
-  //   //     baseAccount: baseAccount.publicKey
-  //   //   }
-  //   // });
-
-  //   await program.rpc.initialize({
-  //     accounts: {
-  //       baseAccount: baseAccount.publicKey
-  //     }
-  //   });
-
-  //   // const account = await program.account.baseAccount.fetch(baseAccount.publicKey);
-  //   // console.log('account: ', account);
-  //   // setValue(account.count.toString());
-  //   console.log('hi there')
-  // }
 
   if (!wallet.connected) {
     /* If the user's wallet is not connected, display connect wallet button. */

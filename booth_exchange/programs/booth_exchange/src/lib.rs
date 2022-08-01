@@ -1,11 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Token, MintTo, Transfer, TokenAccount};
-use anchor_spl::token;
+use anchor_spl::token::{Token, Transfer, TokenAccount};
 use anchor_lang::solana_program::program_pack::Pack;
-
-use spl_token::{
-    state::Mint
-};
 
 use std::str;
 
