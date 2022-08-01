@@ -56,3 +56,6 @@ solana airdrop 2 {public_key}
 # transfer from the key just made to the address locally
 solana address -k /Users/{name}/.config/solana/id.json
 solana transfer --from localkey.json {public_key} 18
+
+# Helpful articles/git requests
+* Deploy issue to devnet because .so target file to deploy was > 400KB: https://github.com/solana-labs/solana/issues/23427
