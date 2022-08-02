@@ -78,6 +78,8 @@ class DisplayMintInformation extends React.Component {
           <tr key={i}>
             <td>{i}</td>
             <td>{this.props.mint_info[i].mint.toBase58()}</td>
+            <td>{this.props.mint_info[i].admin.publicKey.toBase58()}</td>
+            <td>{this.props.mint_info[i].admin_token_account_address.address.toBase58()}</td>
           </tr>
           )
       }
@@ -89,7 +91,9 @@ class DisplayMintInformation extends React.Component {
           <thead>
               <tr>
                 <th>index</th>
-                <th>Mint address</th>
+                <th>Mint</th>
+                <th>Admin Public Key</th>
+                <th>ATA</th>
               </tr>
             </thead>
             <tbody>
@@ -106,6 +110,7 @@ function App() {
   const [savedMessage, setSavedMessage] = useState(null);
   const [toSave, setToSave] = useState(null);
   const [toMintInformation, setToMintInformation] = useState(null);
+  const [refresh, setRefresh] = useState(false);
   const wallet = useWallet();
 
   async function getProvider() {
@@ -255,7 +260,11 @@ function App() {
       console.log('added more')
     }
 
-    
+    if (refresh) {
+      setRefresh(false)
+    } else {
+      setRefresh(true)
+    }
   }
 
 async function sleep(ms) {
