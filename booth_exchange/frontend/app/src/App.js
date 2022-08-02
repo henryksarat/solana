@@ -58,17 +58,61 @@ class DisplaySomething extends React.Component {
  }
 }
 
+class DisplayMintInformation extends React.Component {
+  render() {
+      console.log(this.props.mint_info)
+    
+      if(this.props.mint_info == null) {
+        return ( 
+          <label>
+            No mint created yet 
+        </label>
+        )
+      }
+    
+      var rows = []
+  
+      var total_amount = 0
+      for(let i = 0; i < this.props.mint_info.length ; i++) {
+        rows.push(
+          <tr key={i}>
+            <td>{i}</td>
+            <td>{this.props.mint_info[i].mint.toBase58()}</td>
+          </tr>
+          )
+      }
+
+      console.log("length=" + rows.length)
+
+   return (
+          <table>
+          <thead>
+              <tr>
+                <th>index</th>
+                <th>Mint address</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows}
+            </tbody>
+            
+          </table>
+   );
+ }
+}
+
 function App() {
   const [value, setValue] = useState(null);
   const [savedMessage, setSavedMessage] = useState(null);
   const [toSave, setToSave] = useState(null);
+  const [toMintInformation, setToMintInformation] = useState(null);
   const wallet = useWallet();
 
   async function getProvider() {
     // const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
     const network = "http://127.0.0.1:8899";
     const connection = new Connection(network, opts.preflightCommitment);
-    
+
     const provider = new AnchorProvider(
       connection, wallet, opts.preflightCommitment,
     );
@@ -188,6 +232,30 @@ function App() {
 
     tokenAccountInfo = await getAccount(connection, fromTokenAccount.address);
 		console.log("tokenAccountInfo=" + tokenAccountInfo.amount);
+    if(toMintInformation == undefined) {
+      setToMintInformation([
+        {
+          'mint': mintA,
+          'admin': fromWallet,
+          'admin_token_account_address': fromTokenAccount,
+        }
+      ])
+
+      console.log('first')
+    } else {
+      let newItems = toMintInformation;
+      newItems.push(
+        {
+          'mint': mintA,
+          'admin': fromWallet,
+          'admin_token_account_address': fromTokenAccount,
+        }
+      )
+      setToMintInformation(newItems)
+      console.log('added more')
+    }
+
+    
   }
 
 async function sleep(ms) {
@@ -212,6 +280,7 @@ async function sleep(ms) {
       <div className="App">
         
         <DisplaySomething message={savedMessage}></DisplaySomething>
+        <DisplayMintInformation mint_info={toMintInformation}></DisplayMintInformation>
         <div>
         <input type="text" name="messageToStore" onChange={handleChange}/>
           {
@@ -229,6 +298,8 @@ async function sleep(ms) {
                 <button onClick={createMintHenryk}>Create mint</button>
                 
                 Click the button to execute the smart contract
+
+
                 </h3>
             )
           }
