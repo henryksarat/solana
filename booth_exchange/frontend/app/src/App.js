@@ -80,8 +80,10 @@ class DisplayMintInformation extends React.Component {
             <td>{this.props.mint_info[i].mint.toBase58()}</td>
             <td>{this.props.mint_info[i].admin.publicKey.toBase58()}</td>
             <td>{this.props.mint_info[i].admin_token_account_address.address.toBase58()}</td>
+            <td>{this.props.mint_info[i].amount_minted}</td>
           </tr>
           )
+          console.log("length=====" + this.props.mint_info[i].amount_minted)
       }
 
       console.log("length=" + rows.length)
@@ -94,6 +96,7 @@ class DisplayMintInformation extends React.Component {
                 <th>Mint</th>
                 <th>Admin Public Key</th>
                 <th>ATA</th>
+                <th>Minted Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -111,6 +114,8 @@ function App() {
   const [toSave, setToSave] = useState(null);
   const [toMintInformation, setToMintInformation] = useState(null);
   const [refresh, setRefresh] = useState(false);
+  const [toSetToMintAmount, setToMintAmount] = useState(null);
+
   const wallet = useWallet();
 
   async function getProvider() {
@@ -198,12 +203,15 @@ function App() {
       mintA,
       fromTokenAccount.address,
       fromWallet.publicKey,
-      100,
+      toSetToMintAmount,
       [fromWallet]
     );
 
     tokenAccountInfo = await getAccount(connection, fromTokenAccount.address);
-		console.log(tokenAccountInfo.amount);
+		
+    const originalMintAmount = String(tokenAccountInfo.amount)
+
+    console.log(originalMintAmount);
 
     console.log(`Mint to signature: ${signature}`);
 
@@ -243,9 +251,10 @@ function App() {
           'mint': mintA,
           'admin': fromWallet,
           'admin_token_account_address': fromTokenAccount,
+          'amount_minted': originalMintAmount
         }
       ])
-
+      console.log('original amount=' + originalMintAmount)
       console.log('first')
     } else {
       let newItems = toMintInformation;
@@ -254,9 +263,11 @@ function App() {
           'mint': mintA,
           'admin': fromWallet,
           'admin_token_account_address': fromTokenAccount,
+          'amount_minted': originalMintAmount
         }
       )
       setToMintInformation(newItems)
+      console.log('original amount=' + originalMintAmount)
       console.log('added more')
     }
 
@@ -277,6 +288,11 @@ async function sleep(ms) {
     console.log('set to save = ' + e.target.value);
   }
 
+  async function handleChangeMintAmount(e){
+    setToMintAmount(e.target.value);
+    console.log('set to mint = ' + e.target.value);
+  }
+
   if (!wallet.connected) {
     /* If the user's wallet is not connected, display connect wallet button. */
     return (
@@ -289,7 +305,6 @@ async function sleep(ms) {
       <div className="App">
         
         <DisplaySomething message={savedMessage}></DisplaySomething>
-        <DisplayMintInformation mint_info={toMintInformation}></DisplayMintInformation>
         <div>
         <input type="text" name="messageToStore" onChange={handleChange}/>
           {
@@ -304,11 +319,11 @@ async function sleep(ms) {
               <h2>{value}</h2>
             ) : (
               <h3>
+                <p>
+                  <DisplayMintInformation mint_info={toMintInformation}></DisplayMintInformation>
+                </p>
+                <input type="text" name="mintAmount" onChange={handleChangeMintAmount}/>
                 <button onClick={createMintHenryk}>Create mint</button>
-                
-                Click the button to execute the smart contract
-
-
                 </h3>
             )
           }
