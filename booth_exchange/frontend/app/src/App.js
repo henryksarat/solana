@@ -10,6 +10,9 @@ import idl from './idl.json';
 import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { useWallet, WalletProvider, ConnectionProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import Button from 'react-bootstrap/Button';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import Table from 'react-bootstrap/Table';
 
 import {
   createMint,
@@ -89,7 +92,7 @@ class DisplayMintInformation extends React.Component {
       console.log("length=" + rows.length)
 
    return (
-          <table>
+          <Table striped bordered hover size="sm">
           <thead>
               <tr>
                 <th>index</th>
@@ -103,7 +106,7 @@ class DisplayMintInformation extends React.Component {
               {rows}
             </tbody>
             
-          </table>
+          </Table>
    );
  }
 }
@@ -308,7 +311,7 @@ async function sleep(ms) {
         <div>
         <input type="text" name="messageToStore" onChange={handleChange}/>
           {
-            !value && (<button onClick={createCounter}>Execute</button>)
+            !value && (<Button onClick={createCounter}>Execute</Button>)
           }
           {/* {
             value && <button onClick={increment}>Increment counter</button>
@@ -323,7 +326,7 @@ async function sleep(ms) {
                   <DisplayMintInformation mint_info={toMintInformation}></DisplayMintInformation>
                 </p>
                 <input type="text" name="mintAmount" onChange={handleChangeMintAmount}/>
-                <button onClick={createMintHenryk}>Create mint</button>
+                <Button onClick={createMintHenryk}>Create mint</Button>
                 </h3>
             )
           }
