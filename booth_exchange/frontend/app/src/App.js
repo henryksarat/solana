@@ -86,10 +86,7 @@ class DisplayMintInformation extends React.Component {
             <td>{this.props.mint_info[i].amount_minted}</td>
           </tr>
           )
-          console.log("length=====" + this.props.mint_info[i].amount_minted)
       }
-
-      console.log("length=" + rows.length)
 
    return (
           <Table striped bordered hover size="sm">
@@ -111,6 +108,51 @@ class DisplayMintInformation extends React.Component {
  }
 }
 
+
+class DisplayVaultInformation extends React.Component {
+  render() {    
+      console.log("here")
+      if(this.props.vault_info == null) {
+        return ( 
+          <label>
+            No vaults created yet
+        </label>
+        )
+      }
+    
+      var rows = []
+      console.log("here1")
+      var total_amount = 0
+      for(let i = 0; i < this.props.vault_info.length ; i++) {
+        console.log("here2")
+        console.log(this.props.vault_info[i].mint.toBase58())
+        rows.push(
+          <tr key={i}>
+            <td>{i}</td>
+            <td>{this.props.vault_info[i].mint.toBase58()}</td>
+            <td>{this.props.vault_info[i].ata.address.toBase58()}</td>
+          </tr>
+          )
+      }
+
+   return (
+          <Table striped bordered hover size="sm">
+          <thead>
+              <tr>
+                <th>index</th>
+                <th>Mint</th>
+                <th>ATA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows}
+            </tbody>
+            
+          </Table>
+   );
+ }
+}
+
 function App() {
   const [value, setValue] = useState(null);
   const [savedMessage, setSavedMessage] = useState(null);
@@ -118,6 +160,7 @@ function App() {
   const [toMintInformation, setToMintInformation] = useState(null);
   const [refresh, setRefresh] = useState(false);
   const [toSetToMintAmount, setToMintAmount] = useState(null);
+  const [exchangeBoothVaults, setExchangeBoothVaults] = useState(null);
 
   const wallet = useWallet();
 
@@ -257,6 +300,17 @@ function App() {
           'amount_minted': originalMintAmount
         }
       ])
+
+
+      setExchangeBoothVaults(
+        [
+          {
+            'mint': mintA,
+            'ata': toTokenAccount
+          }
+        ]
+      )
+
       console.log('original amount=' + originalMintAmount)
       console.log('first')
     } else {
@@ -270,6 +324,19 @@ function App() {
         }
       )
       setToMintInformation(newItems)
+
+
+      let newItemsVault = exchangeBoothVaults;
+
+
+      newItemsVault.push(
+          {
+            'mint': mintA,
+            'ata': toTokenAccount
+          }
+      )
+
+      setExchangeBoothVaults(newItemsVault)
       console.log('original amount=' + originalMintAmount)
       console.log('added more')
     }
@@ -324,6 +391,7 @@ async function sleep(ms) {
               <h3>
                 <p>
                   <DisplayMintInformation mint_info={toMintInformation}></DisplayMintInformation>
+                  <DisplayVaultInformation vault_info={exchangeBoothVaults}></DisplayVaultInformation>
                 </p>
                 <input type="text" name="mintAmount" onChange={handleChangeMintAmount}/>
                 <Button onClick={createMintHenryk}>Create mint</Button>
