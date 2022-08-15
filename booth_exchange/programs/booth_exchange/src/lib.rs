@@ -2,9 +2,10 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Token, Transfer, TokenAccount};
 use anchor_lang::solana_program::program_pack::Pack;
 
+
 use std::str;
 
-declare_id!("FS4tM81VusiHgaKe7Ar7X1fJesJCZho5CCWFELWcpckF");
+declare_id!("BR6rCBaWFS1DS3U9MirWBFDjJ2NEBWgrPGTkLCCrgju8");
 
 
 pub fn assert_with_msg(statement: bool, err: ErrorCode, msg: &str) -> Result<()> {
@@ -99,6 +100,8 @@ pub mod booth_exchange {
         let data_location = &mut ctx.accounts.data_location;
         data_location.call_count = 59;
         data_location.message = message;
+
+        msg!("in here now");
 
         Ok(())
     }
@@ -336,20 +339,6 @@ fn total_to_send_to_user_with_fees_taken_into_account(
     return Ok(new_amount as u64)
 }
 
-#[derive(Accounts)]
-pub struct SuperSimpleLengthAccounts<'info> {
-    #[account(
-        init, 
-        payer = admin,
-        space = SuperSimpleSave::LEN
-    )]
-    pub data_location: Account<'info, SuperSimpleSave>,
-
-    #[account(mut)]
-    pub admin: Signer<'info>,
-
-    pub system_program: Program<'info, System>,
-}
 
 
 #[derive(Accounts)]
@@ -466,6 +455,22 @@ pub struct DeepositAccounts<'info> {
     token_program: Program<'info, Token>,
 }
 
+
+#[derive(Accounts)]
+pub struct SuperSimpleLengthAccounts<'info> {
+    #[account(
+        init, 
+        payer = admin,
+        space = SuperSimpleSave::LEN
+    )]
+    pub data_location: Account<'info, SuperSimpleSave>,
+
+    #[account(mut)]
+    pub admin: Signer<'info>,
+    
+    pub system_program: Program<'info, System>
+}
+
 #[derive(Accounts)]
 #[instruction()]
 pub struct ExchangeBoothAccounts<'info> {
@@ -475,7 +480,7 @@ pub struct ExchangeBoothAccounts<'info> {
         space = ExchangeBooth::LEN,
         seeds=[
             b"ebpda", 
-            // admin.key().as_ref(), 
+            // payer.key().as_ref(), 
             mint_a.key().as_ref(),
             mint_b.key().as_ref()
         ],
@@ -488,6 +493,7 @@ pub struct ExchangeBoothAccounts<'info> {
 
     #[account(mut)]
     pub admin: Signer<'info>,
+    
     pub system_program: Program<'info, System>,
 
     /// CHECK: Some token

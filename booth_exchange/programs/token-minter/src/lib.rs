@@ -3,8 +3,7 @@ use anchor_spl::token::{Token, MintTo, Transfer};
 use anchor_spl::token;
 
 
-//declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
-declare_id!("FgWP6Y7nfHse7w5FmyJQ5gLGiuwVNKmQ1XNV11yyuMmf");
+declare_id!("5LySzBQEeQHWJmg5sX8SJEXQBMBwTtjNAEX68zYHeADc");
 
 #[program]
 pub mod token_minter {
@@ -51,9 +50,6 @@ pub mod token_minter {
         Ok(())
     }
 }
-
-// #[derive(Accounts)]
-// pub struct Initialize {}
 
 #[derive(Accounts)]
 pub struct MintToken<'info> {

@@ -1,3 +1,12 @@
+//NOTE: If the target directories are deleted and you deploy with
+// a new program_id, make sure to deploy both booth_exchange to the 
+// blockchain and also toke_minter! Then take the program_ids and update
+// in BOTH lib.rs files. Otherwise, an error will be thrown about 
+// a mismatch in the program_id expected and it is hard to debug
+// since it's easy to forget in this project I chose to have
+// two different lib.rs files
+
+
 import * as anchor from "@project-serum/anchor";
 import { Program, } from "@project-serum/anchor";
 import { BoothExchange } from "../target/types/booth_exchange";
@@ -24,6 +33,7 @@ describe("exchange_booth", () => {
 
   it("Is initialized!", async () => {
     // Add your test here.
+    console.log("program_id=" + anchor.web3.SystemProgram.programId.toBase58())
     const tx = await program.methods.initialize().rpc();
     console.log("Your transaction signature", tx);
   });
