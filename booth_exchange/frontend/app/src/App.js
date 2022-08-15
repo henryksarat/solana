@@ -18,25 +18,12 @@ import Table from 'react-bootstrap/Table';
 import {
   createMint,
   TOKEN_PROGRAM_ID,
-  MINT_SIZE,
-  createAssociatedTokenAccountInstruction,
-  getAssociatedTokenAddress,
-  createInitializeMintInstruction,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   getOrCreateAssociatedTokenAccount,
   mintTo,
   getAccount,
-  Account,
   transfer,
 } from "@solana/spl-token"; 
 require('@solana/wallet-adapter-react-ui/styles.css');
-// import {
-//   Token,
-//   TOKEN_PROGRAM_ID,
-//   ASSOCIATED_TOKEN_PROGRAM_ID,
-// } from "@solana/spl-token";
-
-
 
 const wallets = [
   /* view list of available wallets at https://github.com/solana-labs/wallet-adapter#wallets */
@@ -190,10 +177,7 @@ function App() {
         accounts: {
           dataLocation: baseAccount.publicKey,
           admin: provider.wallet.publicKey,
-          systemProgram: SystemProgram.programId,
-          mintA: exchangeBoothVaults[0].mint,
-          rent: SYSVAR_RENT_PUBKEY,
-          tokenProgram: TOKEN_PROGRAM_ID
+          systemProgram: SystemProgram.programId
         },
         signers: [baseAccount]
       });
