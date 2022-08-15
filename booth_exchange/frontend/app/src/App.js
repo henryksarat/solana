@@ -177,7 +177,10 @@ function App() {
         accounts: {
           dataLocation: baseAccount.publicKey,
           admin: provider.wallet.publicKey,
-          systemProgram: SystemProgram.programId
+          systemProgram: SystemProgram.programId,
+          mintA: exchangeBoothVaults[0].mint,
+          rent: SYSVAR_RENT_PUBKEY,
+          tokenProgram: TOKEN_PROGRAM_ID
         },
         signers: [baseAccount]
       });
@@ -201,7 +204,7 @@ function App() {
     const provider = await getProvider()
     const program = new Program(idl, programID, provider);
     
-    console.log("program_id=" + programID)
+    console.log("program_id=" +programID)
 
     if (exchangeBoothVaults == null || exchangeBoothVaults.length != 2) {
       console.log('not enough mints')
@@ -258,6 +261,7 @@ function App() {
 
   async function createMintHenryk() {    
     const provider = await getProvider()
+    /* create the program interface combining the idl, program ID, and provider */
     const program = new Program(idl, programID, provider);
     
     console.log('create mint')
@@ -267,12 +271,10 @@ function App() {
 
     const fromWallet = Keypair.generate();
 
-    // Commented out since I keep getting hit with 429 rate limiting
-    //const fromAirdropSignature = await connection.requestAirdrop(fromWallet.publicKey, 2*LAMPORTS_PER_SOL);
-    // await connection.requestAirdrop(fromWallet.publicKey, 2*LAMPORTS_PER_SOL);
-    //const result = await connection.confirmTransaction(fromAirdropSignature);
-    //console.log("fromAirdropSignature="+fromAirdropSignature)
-    //console.log("result="+result)
+    const fromAirdropSignature = await connection.requestAirdrop(fromWallet.publicKey, 2*LAMPORTS_PER_SOL);
+    const result = await connection.confirmTransaction(fromAirdropSignature);
+    console.log("fromAirdropSignature="+fromAirdropSignature)
+    console.log("result="+result)
 
     let mintA = await createMint(
       connection,
