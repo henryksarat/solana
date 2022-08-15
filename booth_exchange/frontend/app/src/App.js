@@ -107,13 +107,15 @@ class DisplayVaultInformation extends React.Component {
         </label>
         )
       }
-    
+      
+      
       var rows = []
       console.log("here1")
       var total_amount = 0
       for(let i = 0; i < this.props.vault_info.length ; i++) {
         console.log("here2")
         console.log(this.props.vault_info[i].mint.toBase58())
+        
         rows.push(
           <tr key={i}>
             <td>{i}</td>
@@ -122,6 +124,8 @@ class DisplayVaultInformation extends React.Component {
           </tr>
           )
       }
+
+      
 
    return (
           <Table striped bordered hover size="sm">
@@ -198,6 +202,12 @@ function App() {
     } catch (err) {
       console.log("Transaction error: ", err);
     }
+  }
+
+  async function getAmount(connection, ata_address) {
+    let accountInfo = await getAccount(connection, ata_address);
+    console.log("current_amount=" + accountInfo.amount)
+    return accountInfo.amount
   }
 
   async function createExchangeBooth() {
@@ -295,8 +305,7 @@ function App() {
    
     console.log(`Create Token Account: ${fromTokenAccount.address.toBase58()}`);
 
-    let tokenAccountInfo = await getAccount(connection, fromTokenAccount.address);
-		console.log(tokenAccountInfo.amount);
+		console.log(await getAmount(connection, fromTokenAccount.address));
 
     let signature = await mintTo(
       connection,
@@ -307,10 +316,8 @@ function App() {
       toSetToMintAmount,
       [fromWallet]
     );
-
-    tokenAccountInfo = await getAccount(connection, fromTokenAccount.address);
 		
-    const originalMintAmount = String(tokenAccountInfo.amount)
+    const originalMintAmount = String(await getAmount(connection, fromTokenAccount.address))
 
     console.log(originalMintAmount);
 
@@ -325,10 +332,8 @@ function App() {
 
     console.log(`toTokenAccount ${toTokenAccount.address}`);
 
+  console.log("toTokenAccount=" + await getAmount(connection, toTokenAccount.address))
 
-  let toTokenMintA_Info = await getAccount(connection, toTokenAccount.address);
-
-  console.log("toTokenMintA_Info=" + toTokenMintA_Info.amount)
   signature = await transfer(
     connection,
     fromWallet,
@@ -340,12 +345,11 @@ function App() {
 
     console.log(`transfer: ${signature}`);
 
-    toTokenMintA_Info = await getAccount(connection, toTokenAccount.address);
-    console.log("toTokenMintA_Info=" + toTokenMintA_Info.amount)
+    //toTokenMintA_Info = await getAccount(connection, toTokenAccount.address);
+    console.log("toTokenMintA_Info=" + await getAmount(connection, toTokenAccount.address))
 
-
-    tokenAccountInfo = await getAccount(connection, fromTokenAccount.address);
-		console.log("tokenAccountInfo=" + tokenAccountInfo.amount);
+    
+		console.log("fromTokenAccount=" + await getAmount(connection, fromTokenAccount.address));
     if(toMintInformation == undefined) {
       setToMintInformation([
         {
