@@ -72,6 +72,7 @@ class DisplayMintInformation extends React.Component {
             <td>{this.props.mint_info[i].admin.publicKey.toBase58()}</td>
             <td>{this.props.mint_info[i].admin_token_account_address.address.toBase58()}</td>
             <td>{this.props.mint_info[i].amount_minted}</td>
+            <td>{this.props.mint_info[i].current_amount_in_origin_admin_ata}</td>
           </tr>
           )
       }
@@ -85,6 +86,7 @@ class DisplayMintInformation extends React.Component {
                 <th>Admin Public Key</th>
                 <th>ATA</th>
                 <th>Minted Amount</th>
+                <th>Current Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -153,6 +155,8 @@ function App() {
   const [refresh, setRefresh] = useState(false);
   const [toSetToMintAmount, setToMintAmount] = useState(null);
   const [exchangeBoothVaults, setExchangeBoothVaults] = useState(null);
+  const [mintToBootStrap, setMintToBootStrap] = useState(null);
+  const [mintToBootStrapAmount, setMintToBootStrapAmount] = useState(null);
 
   const wallet = useWallet();
 // tried to create mint on devnet and didnt work
@@ -269,6 +273,56 @@ function App() {
     console.log("pda key="+adminPdaKey)
   }
 
+  async function createNewAccountWithMintInIt() {
+    for(let i = 0; i < toMintInformation.length ; i++) {
+      
+      if (toMintInformation[i].mint.toBase58() == mintToBootStrap) {
+        console.log("Mint found to transfer")
+
+        const newWallet = Keypair.generate();
+
+        const provider = await getProvider()
+        const connection = provider.connection;
+    
+        let newTokenAccountATA = await getOrCreateAssociatedTokenAccount(
+          connection, 
+          toMintInformation[i].admin, 
+          toMintInformation[i].mint, 
+          newWallet.publicKey
+        );
+    
+        console.log("newTokenAccountATA="+newTokenAccountATA)
+        
+        console.log(await getAmount(connection, newTokenAccountATA.address));
+
+        await transfer(
+          connection,
+          toMintInformation[i].admin,
+          toMintInformation[i].admin_token_account_address.address,
+          newTokenAccountATA.address,
+          toMintInformation[i].admin.publicKey,
+          mintToBootStrapAmount
+        );
+      
+        console.log(await getAmount(connection, newTokenAccountATA.address));
+
+
+
+        let newAmountAdminAta = String(await getAmount(connection, toMintInformation[i].admin_token_account_address.address))
+
+        console.log("new maount for admin ata=" + newAmountAdminAta)
+
+        toMintInformation[i].current_amount_in_origin_admin_ata = newAmountAdminAta
+
+        setRefresh(!refresh)
+
+        return
+      }
+    }
+
+    console.log("did not find mint to create new account with balance")
+  }
+
   async function createMintHenryk() {    
     const provider = await getProvider()
     /* create the program interface combining the idl, program ID, and provider */
@@ -330,6 +384,8 @@ function App() {
       provider.wallet.publicKey
     );
 
+
+
     console.log(`toTokenAccount ${toTokenAccount.address}`);
 
   console.log("toTokenAccount=" + await getAmount(connection, toTokenAccount.address))
@@ -349,14 +405,16 @@ function App() {
     console.log("toTokenMintA_Info=" + await getAmount(connection, toTokenAccount.address))
 
     
-		console.log("fromTokenAccount=" + await getAmount(connection, fromTokenAccount.address));
+    let currentAmountInAdminAta = String(await getAmount(connection, fromTokenAccount.address))
+		console.log("fromTokenAccount=" + currentAmountInAdminAta);
     if(toMintInformation == undefined) {
       setToMintInformation([
         {
           'mint': mintA,
           'admin': fromWallet,
           'admin_token_account_address': fromTokenAccount,
-          'amount_minted': originalMintAmount
+          'amount_minted': originalMintAmount,
+          'current_amount_in_origin_admin_ata': currentAmountInAdminAta
         }
       ])
 
@@ -379,7 +437,8 @@ function App() {
           'mint': mintA,
           'admin': fromWallet,
           'admin_token_account_address': fromTokenAccount,
-          'amount_minted': originalMintAmount
+          'amount_minted': originalMintAmount,
+          'current_amount_in_origin_admin_ata': currentAmountInAdminAta
         }
       )
       setToMintInformation(newItems)
@@ -422,6 +481,17 @@ async function sleep(ms) {
     console.log('set to mint = ' + e.target.value);
   }
 
+  async function handleMintToBootStrap(e){
+    setMintToBootStrap(e.target.value);
+    console.log('set to mint = ' + e.target.value);
+  }
+
+  async function handleMintToBootStrapAmount(e){
+    setMintToBootStrapAmount(e.target.value);
+    console.log('set to mint = ' + e.target.value);
+  }
+
+
   if (!wallet.connected) {
     /* If the user's wallet is not connected, display connect wallet button. */
     return (
@@ -459,6 +529,13 @@ async function sleep(ms) {
                 </div>
                 <div>
                   <Button onClick={createExchangeBooth}>Create Exchange Booth</Button>
+                </div>
+                <div>
+                  Mint
+                  <input type="text" name="mintToBootStrap" onChange={handleMintToBootStrap}/>
+                  Amount
+                  <input type="text" name="mintToBootStrapAmount" onChange={handleMintToBootStrapAmount}/>
+                  <Button onClick={createNewAccountWithMintInIt}>Create address and transfer amount in there</Button>
                 </div>
                 </h3>
             )
