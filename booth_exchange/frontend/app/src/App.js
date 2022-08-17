@@ -69,8 +69,8 @@ class DisplayMintInformation extends React.Component {
           <tr key={i}>
             <td>{i}</td>
             <td>{this.props.mint_info[i].mint.toBase58()}</td>
-            <td>{this.props.mint_info[i].admin.publicKey.toBase58()}</td>
-            <td>{this.props.mint_info[i].admin_token_account_address.address.toBase58()}</td>
+            <td>{threeDotStringRepresentation(this.props.mint_info[i].admin.publicKey.toBase58())}</td>
+            <td>{threeDotStringRepresentation(this.props.mint_info[i].admin_token_account_address.address.toBase58())}</td>
             <td>{this.props.mint_info[i].amount_minted}</td>
             <td>{this.props.mint_info[i].current_amount_in_origin_admin_ata}</td>
           </tr>
@@ -99,6 +99,14 @@ class DisplayMintInformation extends React.Component {
 }
 
 
+function threeDotStringRepresentation(item) {
+  let stringRepresentation = String(item)
+  const finalString = stringRepresentation.substring(0, 5) 
+    + "..." 
+    + stringRepresentation.substring(stringRepresentation.length-5, stringRepresentation.length)
+  return finalString
+}
+
 class DisplayVaultInformation extends React.Component {
   render() {    
       console.log("here")
@@ -122,7 +130,7 @@ class DisplayVaultInformation extends React.Component {
           <tr key={i}>
             <td>{i}</td>
             <td>{this.props.vault_info[i].mint.toBase58()}</td>
-            <td>{this.props.vault_info[i].ata.address.toBase58()}</td>
+            <td>{threeDotStringRepresentation(this.props.vault_info[i].ata.address.toBase58())}</td>
           </tr>
           )
       }
