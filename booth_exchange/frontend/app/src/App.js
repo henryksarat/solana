@@ -155,14 +155,56 @@ class DisplayVaultInformation extends React.Component {
  }
 }
 
+class DisplayCreatedAccounts extends React.Component {
+  render() {    
+      if(this.props.accounts == null || this.props.accounts.length == 0) {
+        return ( 
+          <label>
+            No accounts created yet
+        </label>
+        )
+      }
+      console.log("accounts=" + this.props.accounts.length)
+      
+      var rows = []
+      for(let i = 0; i < this.props.accounts.length ; i++) {
+        
+        rows.push(
+          <tr key={i}>
+            <td>{i}</td>
+            <td>{this.props.accounts[i].publicKey.toBase58()}</td>
+          </tr>
+          )
+      }
+
+   return (
+          <Table striped bordered hover size="sm">
+          <thead>
+              <tr>
+                <th>index</th>
+                <th>Account</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows}
+            </tbody>
+            
+          </Table>
+   );
+ }
+}
+
 function App() {
   const [value, setValue] = useState(null);
   const [savedMessage, setSavedMessage] = useState(null);
   const [toSave, setToSave] = useState(null);
+  
   const [toMintInformation, setToMintInformation] = useState(null);
+  const [exchangeBoothVaults, setExchangeBoothVaults] = useState(null);
+  const [createdAccounts, setCreatedAccounts] = useState([]);
+
   const [refresh, setRefresh] = useState(false);
   const [toSetToMintAmount, setToMintAmount] = useState(null);
-  const [exchangeBoothVaults, setExchangeBoothVaults] = useState(null);
   const [mintToBootStrap, setMintToBootStrap] = useState(null);
   const [mintToBootStrapAmount, setMintToBootStrapAmount] = useState(null);
 
@@ -321,6 +363,11 @@ function App() {
         console.log("new maount for admin ata=" + newAmountAdminAta)
 
         toMintInformation[i].current_amount_in_origin_admin_ata = newAmountAdminAta
+
+        let newItems = createdAccounts;
+        newItems.push(newWallet)
+        setCreatedAccounts(newItems)
+
 
         setRefresh(!refresh)
 
@@ -544,6 +591,9 @@ async function sleep(ms) {
                   Amount
                   <input type="text" name="mintToBootStrapAmount" onChange={handleMintToBootStrapAmount}/>
                   <Button onClick={createNewAccountWithMintInIt}>Create address and transfer amount in there</Button>
+                </div>
+                <div>
+                  <DisplayCreatedAccounts accounts={createdAccounts}></DisplayCreatedAccounts>
                 </div>
                 </h3>
             )
