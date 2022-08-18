@@ -203,8 +203,8 @@ function App() {
   const [savedMessage, setSavedMessage] = useState(null);
   const [toSave, setToSave] = useState(null);
   
-  const [toMintInformation, setToMintInformation] = useState(null);
-  const [exchangeBoothVaults, setExchangeBoothVaults] = useState(null);
+  const [toMintInformation, setToMintInformation] = useState([]);
+  const [exchangeBoothVaults, setExchangeBoothVaults] = useState([]);
   const [createdAccounts, setCreatedAccounts] = useState([]);
 
   const [refresh, setRefresh] = useState(false);
@@ -470,63 +470,35 @@ function App() {
     
     let currentAmountInAdminAta = String(await getAmount(connection, fromTokenAccount.address))
 		console.log("fromTokenAccount=" + currentAmountInAdminAta);
-    if(toMintInformation == undefined) {
-      setToMintInformation([
+  
+    let newItems = toMintInformation;
+    newItems.push(
+      {
+        'mint': mintA,
+        'admin': fromWallet,
+        'admin_token_account_address': fromTokenAccount,
+        'amount_minted': originalMintAmount,
+        'current_amount_in_origin_admin_ata': currentAmountInAdminAta
+      }
+    )
+    setToMintInformation(newItems)
+
+
+    let newItemsVault = exchangeBoothVaults;
+
+
+    newItemsVault.push(
         {
           'mint': mintA,
-          'admin': fromWallet,
-          'admin_token_account_address': fromTokenAccount,
-          'amount_minted': originalMintAmount,
-          'current_amount_in_origin_admin_ata': currentAmountInAdminAta
+          'ata': toTokenAccount
         }
-      ])
+    )
 
+    setExchangeBoothVaults(newItemsVault)
+    console.log('original amount=' + originalMintAmount)
+    console.log('added more')
 
-      setExchangeBoothVaults(
-        [
-          {
-            'mint': mintA,
-            'ata': toTokenAccount
-          }
-        ]
-      )
-
-      console.log('original amount=' + originalMintAmount)
-      console.log('first')
-    } else {
-      let newItems = toMintInformation;
-      newItems.push(
-        {
-          'mint': mintA,
-          'admin': fromWallet,
-          'admin_token_account_address': fromTokenAccount,
-          'amount_minted': originalMintAmount,
-          'current_amount_in_origin_admin_ata': currentAmountInAdminAta
-        }
-      )
-      setToMintInformation(newItems)
-
-
-      let newItemsVault = exchangeBoothVaults;
-
-
-      newItemsVault.push(
-          {
-            'mint': mintA,
-            'ata': toTokenAccount
-          }
-      )
-
-      setExchangeBoothVaults(newItemsVault)
-      console.log('original amount=' + originalMintAmount)
-      console.log('added more')
-    }
-
-    if (refresh) {
-      setRefresh(false)
-    } else {
-      setRefresh(true)
-    }
+    setRefresh(!refresh)
   }
 
 async function sleep(ms) {
