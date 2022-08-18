@@ -172,7 +172,9 @@ class DisplayCreatedAccounts extends React.Component {
         rows.push(
           <tr key={i}>
             <td>{i}</td>
-            <td>{this.props.accounts[i].publicKey.toBase58()}</td>
+            <td>{this.props.accounts[i].account.publicKey.toBase58()}</td>
+            <td>{this.props.accounts[i].mint}</td>
+            <td>{this.props.accounts[i].amount}</td>
           </tr>
           )
       }
@@ -183,6 +185,8 @@ class DisplayCreatedAccounts extends React.Component {
               <tr>
                 <th>index</th>
                 <th>Account</th>
+                <th>Mint</th>
+                <th>Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -354,9 +358,8 @@ function App() {
           mintToBootStrapAmount
         );
       
-        console.log(await getAmount(connection, newTokenAccountATA.address));
-
-
+        const newAmountForToken = await getAmount(connection, newTokenAccountATA.address)
+        console.log(newAmountForToken);
 
         let newAmountAdminAta = String(await getAmount(connection, toMintInformation[i].admin_token_account_address.address))
 
@@ -365,7 +368,12 @@ function App() {
         toMintInformation[i].current_amount_in_origin_admin_ata = newAmountAdminAta
 
         let newItems = createdAccounts;
-        newItems.push(newWallet)
+        newItems.push(
+          {
+            'account': newWallet,
+            'mint': threeDotStringRepresentation(mintToBootStrap),
+            'amount': String(newAmountForToken)
+        })
         setCreatedAccounts(newItems)
 
 
