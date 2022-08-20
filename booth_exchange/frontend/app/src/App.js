@@ -14,6 +14,9 @@ import { WalletModalProvider, WalletMultiButton } from '@solana/wallet-adapter-r
 import Button from 'react-bootstrap/Button';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Table from 'react-bootstrap/Table';
+import Toast from 'react-bootstrap/Toast';
+
+
 
 import {
   createMint,
@@ -38,6 +41,8 @@ const opts = {
 }
 // const programID = new PublicKey(idl.metadata.address);
 const programID = new PublicKey("BR6rCBaWFS1DS3U9MirWBFDjJ2NEBWgrPGTkLCCrgju8");
+
+
 
 class DisplaySomething extends React.Component {
   render() {
@@ -214,6 +219,10 @@ function App() {
   const [mintToBootStrap, setMintToBootStrap] = useState(null);
   const [mintToBootStrapAmount, setMintToBootStrapAmount] = useState(null);
 
+  const [notificationBody, setNotificationBody] = useState("Hi there");
+
+  const [show, setShow] = useState(false);
+
   const wallet = useWallet();
 // tried to create mint on devnet and didnt work
 // doing devnet since on localhost I cant do simple save wint a mint a
@@ -380,6 +389,7 @@ function App() {
 
         refreshVaults()
 
+        setBodyAndShow("New account created: " + threeDotStringRepresentation(newWallet.publicKey))
         setRefresh(!refresh)
 
         return
@@ -502,6 +512,7 @@ function App() {
     console.log('original amount=' + originalMintAmount)
     console.log('added more')
 
+    setBodyAndShow("New Mint Created")
     setRefresh(!refresh)
   }
 
@@ -542,6 +553,10 @@ async function sleep(ms) {
     }
   }
 
+  async function setBodyAndShow(message) {
+    setShow(true)
+    setNotificationBody(message)
+  }
 
   if (!wallet.connected) {
     /* If the user's wallet is not connected, display connect wallet button. */
@@ -569,6 +584,23 @@ async function sleep(ms) {
               <h2>{value}</h2>
             ) : (
               <h3>
+                <div>
+                  <Toast onClose={() => setShow(false)} show={show} delay={3000} autohide>
+                    <Toast.Header>
+                      <img
+                        src="holder.js/20x20?text=%20"
+                        className="rounded me-2"
+                        alt=""
+                      />
+                      <strong className="me-auto">Bootstrap</strong>
+                      <small>1 min ago</small>
+                    </Toast.Header>
+                    <Toast.Body>{notificationBody}</Toast.Body>
+                </Toast>
+                {/* <div>
+                  <Button onClick={() => setShow(true)}>Show Toast</Button>
+                </div> */}
+                </div>
                 <div>
                   <DisplayMintInformation mint_info={toMintInformation}></DisplayMintInformation>
                   <DisplayVaultInformation vault_info={exchangeBoothVaults}></DisplayVaultInformation>
