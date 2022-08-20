@@ -131,6 +131,7 @@ class DisplayVaultInformation extends React.Component {
             <td>{i}</td>
             <td>{this.props.vault_info[i].mint.toBase58()}</td>
             <td>{threeDotStringRepresentation(this.props.vault_info[i].ata.address.toBase58())}</td>
+            <td>{this.props.vault_info[i].current_amount}</td>
           </tr>
           )
       }
@@ -144,6 +145,7 @@ class DisplayVaultInformation extends React.Component {
                 <th>index</th>
                 <th>Mint</th>
                 <th>ATA</th>
+                <th>Current Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -376,6 +378,7 @@ function App() {
         })
         setCreatedAccounts(newItems)
 
+        refreshVaults()
 
         setRefresh(!refresh)
 
@@ -464,8 +467,8 @@ function App() {
 
     console.log(`transfer: ${signature}`);
 
-    //toTokenMintA_Info = await getAccount(connection, toTokenAccount.address);
-    console.log("toTokenMintA_Info=" + await getAmount(connection, toTokenAccount.address))
+    let vaultAmount = String(await getAmount(connection, toTokenAccount.address))
+    console.log("vaultAmount=" + vaultAmount)
 
     
     let currentAmountInAdminAta = String(await getAmount(connection, fromTokenAccount.address))
@@ -490,7 +493,8 @@ function App() {
     newItemsVault.push(
         {
           'mint': mintA,
-          'ata': toTokenAccount
+          'ata': toTokenAccount,
+          'current_amount': vaultAmount
         }
     )
 
@@ -524,6 +528,18 @@ async function sleep(ms) {
   async function handleMintToBootStrapAmount(e){
     setMintToBootStrapAmount(e.target.value);
     console.log('set to mint = ' + e.target.value);
+  }
+
+  async function refreshVaults() {
+    const provider = await getProvider()
+    const connection = provider.connection;
+
+    for(let i = 0; i < exchangeBoothVaults.length ; i++) {
+      console.log(exchangeBoothVaults[i].ata.address.toBase58())
+      let amount = await getAmount(connection, exchangeBoothVaults[i].ata.address)
+      exchangeBoothVaults[i].current_amount = String(37)
+      console.log("amount is=" + amount)
+    }
   }
 
 
