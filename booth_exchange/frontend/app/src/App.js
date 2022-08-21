@@ -223,6 +223,11 @@ function App() {
 
   const [show, setShow] = useState(false);
 
+  const [state, setState] = React.useState({
+    first_mint_exchange_booth: "",
+    second_mint_exchange_booth: ""
+  })
+
   const wallet = useWallet();
 // tried to create mint on devnet and didnt work
 // doing devnet since on localhost I cant do simple save wint a mint a
@@ -280,6 +285,12 @@ function App() {
   }
 
   async function createExchangeBooth() {
+    const mintA = state['first_mint_exchange_booth']
+    const mintB = state['second_mint_exchange_booth']
+
+    console.log("mint A=" + mintA)
+    console.log("mint B=" + mintB)
+
     const provider = await getProvider()
     const program = new Program(idl, programID, provider);
     
@@ -378,14 +389,14 @@ function App() {
 
         toMintInformation[i].current_amount_in_origin_admin_ata = newAmountAdminAta
 
-        let newItems = createdAccounts;
-        newItems.push(
+        setCreatedAccounts(current => [
+          ...current,
           {
             'account': newWallet,
             'mint': threeDotStringRepresentation(mintToBootStrap),
             'amount': String(newAmountForToken)
-        })
-        setCreatedAccounts(newItems)
+          }
+        ])
 
         refreshVaults()
 
@@ -484,8 +495,8 @@ function App() {
     let currentAmountInAdminAta = String(await getAmount(connection, fromTokenAccount.address))
 		console.log("fromTokenAccount=" + currentAmountInAdminAta);
   
-    let newItems = toMintInformation;
-    newItems.push(
+    setToMintInformation(current => [
+      ...current,
       {
         'mint': mintA,
         'admin': fromWallet,
@@ -493,28 +504,31 @@ function App() {
         'amount_minted': originalMintAmount,
         'current_amount_in_origin_admin_ata': currentAmountInAdminAta
       }
-    )
-    setToMintInformation(newItems)
+    ])
 
-
-    let newItemsVault = exchangeBoothVaults;
-
-
-    newItemsVault.push(
+    setExchangeBoothVaults(
+      current => [
+        ...current,
         {
           'mint': mintA,
           'ata': toTokenAccount,
           'current_amount': vaultAmount
         }
-    )
-
-    setExchangeBoothVaults(newItemsVault)
+    ])
     console.log('original amount=' + originalMintAmount)
     console.log('added more')
 
     setBodyAndShow("New Mint Created")
     setRefresh(!refresh)
   }
+
+function handleGenericChange(evt) {
+  const value = evt.target.value;
+  setState({
+    ...state,
+    [evt.target.name]: value
+  });
+}
 
 async function sleep(ms) {
   return new Promise((resolve) => {
@@ -611,6 +625,8 @@ async function sleep(ms) {
                   <Button onClick={createMintHenryk}>Create mint</Button>
                 </div>
                 <div>
+                  <input type="text" name="first_mint_exchange_booth" onChange={handleGenericChange}/>
+                  <input type="text" name="second_mint_exchange_booth" onChange={handleGenericChange}/>
                   <Button onClick={createExchangeBooth}>Create Exchange Booth</Button>
                 </div>
                 <div>
