@@ -15,6 +15,10 @@ import Button from 'react-bootstrap/Button';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Table from 'react-bootstrap/Table';
 import Toast from 'react-bootstrap/Toast';
+import Col from 'react-bootstrap/Col';
+import Nav from 'react-bootstrap/Nav';
+import Row from 'react-bootstrap/Row';
+import Tab from 'react-bootstrap/Tab';
 
 
 
@@ -256,7 +260,6 @@ function App() {
           dataLocation: baseAccount.publicKey,
           admin: provider.wallet.publicKey,
           systemProgram: SystemProgram.programId,
-          mintA: exchangeBoothVaults[0].mint,
           rent: SYSVAR_RENT_PUBKEY,
           tokenProgram: TOKEN_PROGRAM_ID
         },
@@ -385,7 +388,7 @@ function App() {
 
         let newAmountAdminAta = String(await getAmount(connection, toMintInformation[i].admin_token_account_address.address))
 
-        console.log("new maount for admin ata=" + newAmountAdminAta)
+        console.log("new amount for admin ata=" + newAmountAdminAta)
 
         toMintInformation[i].current_amount_in_origin_admin_ata = newAmountAdminAta
 
@@ -583,15 +586,8 @@ async function sleep(ms) {
     return (
       <div className="App">
         
-        <DisplaySomething message={savedMessage}></DisplaySomething>
+        
         <div>
-        <input type="text" name="messageToStore" onChange={handleChange}/>
-          {
-            !value && (<Button onClick={createCounter}>Execute</Button>)
-          }
-          {/* {
-            value && <button onClick={increment}>Increment counter</button>
-          } */}
 
           {
             value && value >= Number(0) ? (
@@ -615,29 +611,73 @@ async function sleep(ms) {
                   <Button onClick={() => setShow(true)}>Show Toast</Button>
                 </div> */}
                 </div>
+
                 <div>
-                  <DisplayMintInformation mint_info={toMintInformation}></DisplayMintInformation>
-                  <DisplayVaultInformation vault_info={exchangeBoothVaults}></DisplayVaultInformation>
-                </div>
-                <div>
-                Total to Mint
-                  <input type="text" name="mintAmount" onChange={handleChangeMintAmount}/>
-                  <Button onClick={createMintHenryk}>Create mint</Button>
-                </div>
-                <div>
-                  <input type="text" name="first_mint_exchange_booth" onChange={handleGenericChange}/>
-                  <input type="text" name="second_mint_exchange_booth" onChange={handleGenericChange}/>
-                  <Button onClick={createExchangeBooth}>Create Exchange Booth</Button>
-                </div>
-                <div>
-                  Mint
-                  <input type="text" name="mintToBootStrap" onChange={handleMintToBootStrap}/>
-                  Amount
-                  <input type="text" name="mintToBootStrapAmount" onChange={handleMintToBootStrapAmount}/>
-                  <Button onClick={createNewAccountWithMintInIt}>Create address and transfer amount in there</Button>
-                </div>
-                <div>
-                  <DisplayCreatedAccounts accounts={createdAccounts}></DisplayCreatedAccounts>
+                <Tab.Container id="left-tabs-example" defaultActiveKey="first">
+                  <Row>
+                    <Col sm={3}>
+                      <Nav variant="pills" className="flex-column">
+                        <Nav.Item>
+                          <Nav.Link eventKey="first">Mints</Nav.Link>
+                        </Nav.Item>
+                        <Nav.Item>
+                          <Nav.Link eventKey="second">Accounts</Nav.Link>
+                        </Nav.Item>
+                        <Nav.Item>
+                          <Nav.Link eventKey="third">Sample Smart Contract</Nav.Link>
+                        </Nav.Item>
+                        <Nav.Item>
+                          <Nav.Link eventKey="fourth">Create Excahnge Booth</Nav.Link>
+                        </Nav.Item>
+                      </Nav>
+                    </Col>
+                    <Col sm={9}>
+                      <Tab.Content>
+                        <Tab.Pane eventKey="first">
+                        <div>
+                          <DisplayMintInformation mint_info={toMintInformation}></DisplayMintInformation>
+                          <DisplayVaultInformation vault_info={exchangeBoothVaults}></DisplayVaultInformation>
+                        </div>
+                        <div>
+                        Total to Mint
+                          <input type="text" name="mintAmount" onChange={handleChangeMintAmount}/>
+                          <Button onClick={createMintHenryk}>Create mint</Button>
+                        </div>
+                        </Tab.Pane>
+                        <Tab.Pane eventKey="second">
+                        <div>
+                          <DisplayCreatedAccounts accounts={createdAccounts}></DisplayCreatedAccounts>
+                        </div>
+                        <div>
+                          Mint
+                          <input type="text" name="mintToBootStrap" onChange={handleMintToBootStrap}/>
+                          Amount
+                          <input type="text" name="mintToBootStrapAmount" onChange={handleMintToBootStrapAmount}/>
+                          <Button onClick={createNewAccountWithMintInIt}>Create address and transfer amount in there</Button>
+                        </div>
+                        </Tab.Pane>
+                        <Tab.Pane eventKey="third">
+                        <div>
+                          Stored value: 
+                          <DisplaySomething message={savedMessage}></DisplaySomething>
+                        </div>
+                        <div>
+                          <input type="text" name="messageToStore" onChange={handleChange}/>
+                          <Button onClick={createCounter}>Execute</Button>
+                        </div>
+                        </Tab.Pane>
+                        <Tab.Pane eventKey="fourth">
+                        <div>
+                          <input type="text" name="first_mint_exchange_booth" onChange={handleGenericChange}/>
+                          <input type="text" name="second_mint_exchange_booth" onChange={handleGenericChange}/>
+                          <Button onClick={createExchangeBooth}>Create Exchange Booth</Button>
+                        </div>
+                        </Tab.Pane>
+                      </Tab.Content>
+                    </Col>
+                  </Row>
+
+                </Tab.Container>
                 </div>
                 </h3>
             )
