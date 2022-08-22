@@ -19,8 +19,7 @@ import Col from 'react-bootstrap/Col';
 import Nav from 'react-bootstrap/Nav';
 import Row from 'react-bootstrap/Row';
 import Tab from 'react-bootstrap/Tab';
-
-
+import Spinner from 'react-bootstrap/Spinner';
 
 import {
   createMint,
@@ -45,8 +44,6 @@ const opts = {
 }
 // const programID = new PublicKey(idl.metadata.address);
 const programID = new PublicKey("BR6rCBaWFS1DS3U9MirWBFDjJ2NEBWgrPGTkLCCrgju8");
-
-
 
 class DisplaySomething extends React.Component {
   render() {
@@ -107,7 +104,6 @@ class DisplayMintInformation extends React.Component {
  }
 }
 
-
 function threeDotStringRepresentation(item) {
   let stringRepresentation = String(item)
   const finalString = stringRepresentation.substring(0, 5) 
@@ -144,8 +140,6 @@ class DisplayVaultInformation extends React.Component {
           </tr>
           )
       }
-
-      
 
    return (
           <Table striped bordered hover size="sm">
@@ -212,16 +206,14 @@ class DisplayCreatedAccounts extends React.Component {
 function App() {
   const [value, setValue] = useState(null);
   const [savedMessage, setSavedMessage] = useState(null);
-  const [toSave, setToSave] = useState(null);
   
   const [toMintInformation, setToMintInformation] = useState([]);
   const [exchangeBoothVaults, setExchangeBoothVaults] = useState([]);
   const [createdAccounts, setCreatedAccounts] = useState([]);
 
   const [refresh, setRefresh] = useState(false);
-  const [toSetToMintAmount, setToMintAmount] = useState(null);
-  const [mintToBootStrap, setMintToBootStrap] = useState(null);
-  const [mintToBootStrapAmount, setMintToBootStrapAmount] = useState(null);
+
+  const [loading, setLoading] = useState(false);
 
   const [notificationBody, setNotificationBody] = useState("Hi there");
 
@@ -229,12 +221,14 @@ function App() {
 
   const [state, setState] = React.useState({
     first_mint_exchange_booth: "",
-    second_mint_exchange_booth: ""
+    second_mint_exchange_booth: "",
+    to_save: "",
+    to_mint_amount: "",
+    mint_to_bootstrap: "",
+    mint_to_bootstrap_amount: "",
   })
 
   const wallet = useWallet();
-// tried to create mint on devnet and didnt work
-// doing devnet since on localhost I cant do simple save wint a mint a
   async function getProvider() {
     const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
     // const network = "http://127.0.0.1:8899";
@@ -251,11 +245,8 @@ function App() {
     /* create the program interface combining the idl, program ID, and provider */
     const program = new Program(idl, programID, provider);
     try {
-      console.log('start initialize')
       await program.rpc.initialize();
-      console.log('after initialize')
-      console.log('start super simple')
-      let result = await program.rpc.superSimple(toSave, {
+      let result = await program.rpc.superSimple(state['to_save'], {
         accounts: {
           dataLocation: baseAccount.publicKey,
           admin: provider.wallet.publicKey,
@@ -287,13 +278,18 @@ function App() {
     return accountInfo.amount
   }
 
+  function find_mint_in_vault(mint_address) {
+    for(let i = 0; i < exchangeBoothVaults.length ; i++) {
+      console.log('mint is=' + exchangeBoothVaults[i].mint.toBase58())
+      if (mint_address == exchangeBoothVaults[i].mint.toBase58()) {
+        console.log('found one')
+        return exchangeBoothVaults[i]
+      }
+    }
+  }
+
   async function createExchangeBooth() {
-    const mintA = state['first_mint_exchange_booth']
-    const mintB = state['second_mint_exchange_booth']
-
-    console.log("mint A=" + mintA)
-    console.log("mint B=" + mintB)
-
+   
     const provider = await getProvider()
     const program = new Program(idl, programID, provider);
     
@@ -304,12 +300,18 @@ function App() {
       return
     }
 
-    console.log(exchangeBoothVaults[0].mint.toBuffer())
+    const mintA = find_mint_in_vault(state['first_mint_exchange_booth'])
+    const mintB = find_mint_in_vault(state['second_mint_exchange_booth'])
+
+    console.log("mint A=" + mintA)
+    console.log("mint B=" + mintB)
+
+
     let [adminPdaKey, _adminPdaBump] = (await PublicKey.findProgramAddress(
       [
         anchor.utils.bytes.utf8.encode("ebpda"),
-        exchangeBoothVaults[0].mint.toBuffer(),
-        exchangeBoothVaults[1].mint.toBuffer(),
+        mintA.mint.toBuffer(),
+        mintB.mint.toBuffer(),
       ],
       programID
     ));
@@ -317,7 +319,7 @@ function App() {
     let [vaultAPDAKey, _] = (await PublicKey.findProgramAddress(
       [
         anchor.utils.bytes.utf8.encode("EBVaultA"),
-        exchangeBoothVaults[0].mint.toBuffer(),
+        mintA.mint.toBuffer(),
       ],
       programID
     ));
@@ -325,7 +327,7 @@ function App() {
     let [vaultBPDAKey, s] = (await PublicKey.findProgramAddress(
       [
         anchor.utils.bytes.utf8.encode("EBVaultB"),
-        exchangeBoothVaults[1].mint.toBuffer(),
+        mintB.mint.toBuffer(),
       ],
       programID
     ));
@@ -337,8 +339,8 @@ function App() {
         payer: provider.wallet.publicKey,
         admin: provider.wallet.publicKey,
         systemProgram: SystemProgram.programId,
-        mintA: exchangeBoothVaults[0].mint,
-        mintB: exchangeBoothVaults[1].mint,
+        mintA: mintA.mint,
+        mintB: mintB.mint,
         dataLocation: adminPdaKey,
         vaultAPdaKey: vaultAPDAKey,
         vaultBPdaKey: vaultBPDAKey,
@@ -352,10 +354,16 @@ function App() {
     console.log("pda key="+adminPdaKey)
   }
 
+  const is_loading = () => {
+    if (loading) {
+      return <Spinner animation="border" />
+    }
+  }
+  
   async function createNewAccountWithMintInIt() {
+    setLoading(true)
     for(let i = 0; i < toMintInformation.length ; i++) {
-      
-      if (toMintInformation[i].mint.toBase58() == mintToBootStrap) {
+      if (toMintInformation[i].mint.toBase58() == state['mint_to_bootstrap']) {
         console.log("Mint found to transfer")
 
         const newWallet = Keypair.generate();
@@ -380,7 +388,7 @@ function App() {
           toMintInformation[i].admin_token_account_address.address,
           newTokenAccountATA.address,
           toMintInformation[i].admin.publicKey,
-          mintToBootStrapAmount
+          state['mint_to_bootstrap_amount']
         );
       
         const newAmountForToken = await getAmount(connection, newTokenAccountATA.address)
@@ -396,7 +404,7 @@ function App() {
           ...current,
           {
             'account': newWallet,
-            'mint': threeDotStringRepresentation(mintToBootStrap),
+            'mint': threeDotStringRepresentation(state['mint_to_bootstrap']),
             'amount': String(newAmountForToken)
           }
         ])
@@ -405,6 +413,7 @@ function App() {
 
         setBodyAndShow("New account created: " + threeDotStringRepresentation(newWallet.publicKey))
         setRefresh(!refresh)
+        setLoading(false)
 
         return
       }
@@ -414,10 +423,12 @@ function App() {
   }
 
   async function createMintHenryk() {    
+    setLoading(true)
     const provider = await getProvider()
     /* create the program interface combining the idl, program ID, and provider */
     const program = new Program(idl, programID, provider);
     
+    console.log('amout to mint=' + state['to_mint_amount'])
     console.log('create mint')
     console.log('baseAccount=' + baseAccount.publicKey.toBase58())
 
@@ -457,7 +468,7 @@ function App() {
       mintA,
       fromTokenAccount.address,
       fromWallet.publicKey,
-      toSetToMintAmount,
+      state['to_mint_amount'],
       [fromWallet]
     );
 		
@@ -523,6 +534,7 @@ function App() {
 
     setBodyAndShow("New Mint Created")
     setRefresh(!refresh)
+    setLoading(false)
   }
 
 function handleGenericChange(evt) {
@@ -538,37 +550,18 @@ async function sleep(ms) {
     setTimeout(resolve, ms);
   });
 }
-  async function handleChange(e){
-    setToSave(e.target.value);
-    console.log('set to save = ' + e.target.value);
-  }
 
-  async function handleChangeMintAmount(e){
-    setToMintAmount(e.target.value);
-    console.log('set to mint = ' + e.target.value);
-  }
+async function refreshVaults() {
+  const provider = await getProvider()
+  const connection = provider.connection;
 
-  async function handleMintToBootStrap(e){
-    setMintToBootStrap(e.target.value);
-    console.log('set to mint = ' + e.target.value);
+  for(let i = 0; i < exchangeBoothVaults.length ; i++) {
+    console.log(exchangeBoothVaults[i].ata.address.toBase58())
+    let amount = await getAmount(connection, exchangeBoothVaults[i].ata.address)
+    exchangeBoothVaults[i].current_amount = String(37)
+    console.log("amount is=" + amount)
   }
-
-  async function handleMintToBootStrapAmount(e){
-    setMintToBootStrapAmount(e.target.value);
-    console.log('set to mint = ' + e.target.value);
-  }
-
-  async function refreshVaults() {
-    const provider = await getProvider()
-    const connection = provider.connection;
-
-    for(let i = 0; i < exchangeBoothVaults.length ; i++) {
-      console.log(exchangeBoothVaults[i].ata.address.toBase58())
-      let amount = await getAmount(connection, exchangeBoothVaults[i].ata.address)
-      exchangeBoothVaults[i].current_amount = String(37)
-      console.log("amount is=" + amount)
-    }
-  }
+}
 
   async function setBodyAndShow(message) {
     setShow(true)
@@ -588,7 +581,7 @@ async function sleep(ms) {
         
         
         <div>
-
+          {is_loading()}
           {
             value && value >= Number(0) ? (
               <h2>{value}</h2>
@@ -640,7 +633,7 @@ async function sleep(ms) {
                         </div>
                         <div>
                         Total to Mint
-                          <input type="text" name="mintAmount" onChange={handleChangeMintAmount}/>
+                          <input type="text" name="to_mint_amount" onChange={handleGenericChange}/>
                           <Button onClick={createMintHenryk}>Create mint</Button>
                         </div>
                         </Tab.Pane>
@@ -650,9 +643,9 @@ async function sleep(ms) {
                         </div>
                         <div>
                           Mint
-                          <input type="text" name="mintToBootStrap" onChange={handleMintToBootStrap}/>
+                          <input type="text" name="mint_to_bootstrap" onChange={handleGenericChange}/>
                           Amount
-                          <input type="text" name="mintToBootStrapAmount" onChange={handleMintToBootStrapAmount}/>
+                          <input type="text" name="mint_to_bootstrap_amount" onChange={handleGenericChange}/>
                           <Button onClick={createNewAccountWithMintInIt}>Create address and transfer amount in there</Button>
                         </div>
                         </Tab.Pane>
@@ -662,7 +655,7 @@ async function sleep(ms) {
                           <DisplaySomething message={savedMessage}></DisplaySomething>
                         </div>
                         <div>
-                          <input type="text" name="messageToStore" onChange={handleChange}/>
+                          <input type="text" name="to_save" onChange={handleGenericChange}/>
                           <Button onClick={createCounter}>Execute</Button>
                         </div>
                         </Tab.Pane>
