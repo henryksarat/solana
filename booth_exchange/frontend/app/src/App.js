@@ -226,6 +226,8 @@ function App() {
     to_mint_amount: "",
     mint_to_bootstrap: "",
     mint_to_bootstrap_amount: "",
+    give_myself_mint: "",
+    give_myself_amount: "",
   })
 
   const wallet = useWallet();
@@ -360,6 +362,50 @@ function App() {
     }
   }
   
+  // TODO: Clean up print statements and make into a function to use in the mint
+  // process
+  // TODO: add a my balance
+  async function give_myself_amount() {
+    setLoading(true)
+    for(let i = 0; i < toMintInformation.length ; i++) {
+      if (toMintInformation[i].mint.toBase58() == state['give_myself_mint']) {
+        const mint = toMintInformation[i].mint
+        const provider = await getProvider()
+        const connection = provider.connection;
+
+        console.log("give_myself_amount: mint is=" + mint.toBase58())
+        let toTokenAccount = await getOrCreateAssociatedTokenAccount(
+          connection, 
+          provider.wallet.publicKey, 
+          mint, 
+          provider.wallet.publicKey
+        );
+
+        console.log("give_myself_amount: ATA is=" + toTokenAccount)
+
+        console.log("give_myself_amount: amount before:" +await getAmount(connection, toTokenAccount.address));
+
+
+        console.log("give_myself_amount: amount we want=" + state['give_myself_amount'])
+
+        console.log(toMintInformation[i].admin_token_account_address.address)
+
+        await transfer(
+          connection,
+          toMintInformation[i].admin, // should pay be the holder of the account?
+          toMintInformation[i].admin_token_account_address.address,
+          toTokenAccount.address,
+          toMintInformation[i].admin.publicKey,
+          state['give_myself_amount']
+        );
+
+        console.log("give_myself_amount: amount after:" +await getAmount(connection, toTokenAccount.address));
+      }
+    }
+
+    setLoading(false)
+  }
+
   async function createNewAccountWithMintInIt() {
     setLoading(true)
     for(let i = 0; i < toMintInformation.length ; i++) {
@@ -516,7 +562,7 @@ function App() {
         'admin': fromWallet,
         'admin_token_account_address': fromTokenAccount,
         'amount_minted': originalMintAmount,
-        'current_amount_in_origin_admin_ata': currentAmountInAdminAta
+        'current_amount_in_origin_admin_ata': currentAmountInAdminAta,
       }
     ])
 
@@ -622,6 +668,9 @@ async function refreshVaults() {
                         <Nav.Item>
                           <Nav.Link eventKey="fourth">Create Excahnge Booth</Nav.Link>
                         </Nav.Item>
+                        <Nav.Item>
+                          <Nav.Link eventKey="fifth">My Account</Nav.Link>
+                        </Nav.Item>
                       </Nav>
                     </Col>
                     <Col sm={9}>
@@ -665,6 +714,19 @@ async function refreshVaults() {
                           <input type="text" name="second_mint_exchange_booth" onChange={handleGenericChange}/>
                           <Button onClick={createExchangeBooth}>Create Exchange Booth</Button>
                         </div>
+                        </Tab.Pane>
+                        <Tab.Pane eventKey="fifth">
+                          <div>
+                            <div>
+                              Mint 
+                              <input type="text" name="give_myself_mint" onChange={handleGenericChange}/>
+                            </div>
+                            <div>
+                              Amount
+                              <input type="text" name="give_myself_amount" onChange={handleGenericChange}/>
+                            </div>
+                            <Button onClick={give_myself_amount}>Give Myself</Button>
+                          </div>
                         </Tab.Pane>
                       </Tab.Content>
                     </Col>
