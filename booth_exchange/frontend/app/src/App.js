@@ -209,6 +209,7 @@ function App() {
   
   const [toMintInformation, setToMintInformation] = useState([]);
   const [exchangeBoothVaults, setExchangeBoothVaults] = useState([]);
+  const [myAccountInfo, setMyAccountInfo] = useState([]);
   const [createdAccounts, setCreatedAccounts] = useState([]);
 
   const [refresh, setRefresh] = useState(false);
@@ -367,43 +368,81 @@ function App() {
   // TODO: add a my balance
   async function give_myself_amount() {
     setLoading(true)
+
     for(let i = 0; i < toMintInformation.length ; i++) {
       if (toMintInformation[i].mint.toBase58() == state['give_myself_mint']) {
-        const mint = toMintInformation[i].mint
+        const mint = 
+        await do_giving(
+          toMintInformation[i].mint,
+          toMintInformation[i].admin,
+          toMintInformation[i].admin_token_account_address,
+          state['give_myself_amount']
+        )
+
         const provider = await getProvider()
         const connection = provider.connection;
 
-        console.log("give_myself_amount: mint is=" + mint.toBase58())
-        let toTokenAccount = await getOrCreateAssociatedTokenAccount(
-          connection, 
-          provider.wallet.publicKey, 
-          mint, 
-          provider.wallet.publicKey
-        );
+        let currentAmountInAdminAta = String(await getAmount(connection, toMintInformation[i].admin_token_account_address.address))
+        console.log("give_myself_amount after=" + currentAmountInAdminAta);
 
-        console.log("give_myself_amount: ATA is=" + toTokenAccount)
-
-        console.log("give_myself_amount: amount before:" +await getAmount(connection, toTokenAccount.address));
-
-
-        console.log("give_myself_amount: amount we want=" + state['give_myself_amount'])
-
-        console.log(toMintInformation[i].admin_token_account_address.address)
-
-        await transfer(
-          connection,
-          toMintInformation[i].admin, // should pay be the holder of the account?
-          toMintInformation[i].admin_token_account_address.address,
-          toTokenAccount.address,
-          toMintInformation[i].admin.publicKey,
-          state['give_myself_amount']
-        );
-
-        console.log("give_myself_amount: amount after:" +await getAmount(connection, toTokenAccount.address));
+        toMintInformation[i].current_amount_in_origin_admin_ata = currentAmountInAdminAta
       }
     }
 
+
+    
     setLoading(false)
+  }
+
+  async function do_giving(mint, admin, admin_token_account_address, amount) {  
+      const provider = await getProvider()
+      const connection = provider.connection;
+
+      console.log("give_myself_amount: mint is=" + mint.toBase58())
+      let toTokenAccount = await getOrCreateAssociatedTokenAccount(
+        connection, 
+        admin, 
+        mint, 
+        provider.wallet.publicKey
+      );
+
+      console.log("give_myself_amount: ATA is=" + toTokenAccount)
+
+      console.log("give_myself_amount: amount before:" +await getAmount(connection, toTokenAccount.address));
+
+
+      console.log("give_myself_amount: amount we want=" + state['give_myself_amount'])
+
+      console.log(admin_token_account_address.address)
+
+      await transfer(
+        connection,
+        admin, // should pay be the holder of the account?
+        admin_token_account_address.address,
+        toTokenAccount.address,
+        admin.publicKey,
+        amount
+      );
+
+      let amountAfter = String(await getAmount(connection, toTokenAccount.address))
+      console.log("give_myself_amount: amount after:" + amountAfter);
+
+      for(let i = 0; i < exchangeBoothVaults.length ; i++) {
+        if (exchangeBoothVaults[i].mint.toBase58() == mint.toBase58()) {
+          exchangeBoothVaults[i].current_amount = amountAfter
+          return
+        }
+      }
+      
+      setExchangeBoothVaults(
+      current => [
+        ...current,
+        {
+          'mint': mint,
+          'ata': toTokenAccount,
+          'current_amount': amount
+        }
+    ])
   }
 
   async function createNewAccountWithMintInIt() {
@@ -523,38 +562,10 @@ function App() {
     console.log(originalMintAmount);
 
     console.log(`Mint to signature: ${signature}`);
-
-    let toTokenAccount = await getOrCreateAssociatedTokenAccount(
-      connection, 
-      fromWallet, 
-      mintA, 
-      provider.wallet.publicKey
-    );
-
-
-
-    console.log(`toTokenAccount ${toTokenAccount.address}`);
-
-  console.log("toTokenAccount=" + await getAmount(connection, toTokenAccount.address))
-
-  signature = await transfer(
-    connection,
-    fromWallet,
-    fromTokenAccount.address,
-    toTokenAccount.address,
-    fromWallet.publicKey,
-    10
-  );
-
-    console.log(`transfer: ${signature}`);
-
-    let vaultAmount = String(await getAmount(connection, toTokenAccount.address))
-    console.log("vaultAmount=" + vaultAmount)
-
     
     let currentAmountInAdminAta = String(await getAmount(connection, fromTokenAccount.address))
-		console.log("fromTokenAccount=" + currentAmountInAdminAta);
-  
+		console.log("fromTokenAccount save to state=" + currentAmountInAdminAta);
+
     setToMintInformation(current => [
       ...current,
       {
@@ -566,15 +577,8 @@ function App() {
       }
     ])
 
-    setExchangeBoothVaults(
-      current => [
-        ...current,
-        {
-          'mint': mintA,
-          'ata': toTokenAccount,
-          'current_amount': vaultAmount
-        }
-    ])
+    await do_giving(mintA, fromWallet, fromTokenAccount, 10)
+
     console.log('original amount=' + originalMintAmount)
     console.log('added more')
 
@@ -678,7 +682,6 @@ async function refreshVaults() {
                         <Tab.Pane eventKey="first">
                         <div>
                           <DisplayMintInformation mint_info={toMintInformation}></DisplayMintInformation>
-                          <DisplayVaultInformation vault_info={exchangeBoothVaults}></DisplayVaultInformation>
                         </div>
                         <div>
                         Total to Mint
@@ -725,7 +728,12 @@ async function refreshVaults() {
                               Amount
                               <input type="text" name="give_myself_amount" onChange={handleGenericChange}/>
                             </div>
-                            <Button onClick={give_myself_amount}>Give Myself</Button>
+                            <div>
+                              <Button onClick={give_myself_amount}>Give Myself</Button>
+                            </div>
+                            <div>
+                            <DisplayVaultInformation vault_info={exchangeBoothVaults}></DisplayVaultInformation>
+                            </div>
                           </div>
                         </Tab.Pane>
                       </Tab.Content>
