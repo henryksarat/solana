@@ -2,7 +2,7 @@ import * as anchor from "@project-serum/anchor";
 import './App.css';
 import React from 'react';
 // import * as anchor from "@project-serum/anchor";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Connection, PublicKey, LAMPORTS_PER_SOL, clusterApiUrl, SYSVAR_RENT_PUBKEY } from '@solana/web3.js';
 
 import { Program, AnchorProvider, web3 } from '@project-serum/anchor';
@@ -125,12 +125,7 @@ class DisplayVaultInformation extends React.Component {
       
       
       var rows = []
-      console.log("here1")
-      var total_amount = 0
-      for(let i = 0; i < this.props.vault_info.length ; i++) {
-        console.log("here2")
-        console.log(this.props.vault_info[i].mint.toBase58())
-        
+      for(let i = 0; i < this.props.vault_info.length ; i++) {        
         rows.push(
           <tr key={i}>
             <td>{i}</td>
@@ -220,6 +215,30 @@ function App() {
 
   const [show, setShow] = useState(false);
 
+  useEffect(() => {
+    const executeUpdateOfAmounts = async () => {
+      console.log("in use effect")
+
+      const provider = await getProvider()
+      const connection = provider.connection;
+
+      for(let i = 0; i < toMintInformation.length ; i++) {
+        const currentAmountInAdminAta = String(
+          await getAmount(
+            connection, toMintInformation[i].admin_token_account_address.address
+          )
+        )
+
+        toMintInformation[i].current_amount_in_origin_admin_ata = currentAmountInAdminAta
+      }
+
+      setRefresh(!refresh)
+    }
+
+    executeUpdateOfAmounts().catch(console.error);
+
+  }, [toMintInformation]);
+
   const [state, setState] = React.useState({
     first_mint_exchange_booth: "",
     second_mint_exchange_booth: "",
@@ -229,6 +248,7 @@ function App() {
     mint_to_bootstrap_amount: "",
     give_myself_mint: "",
     give_myself_amount: "",
+    bootstrap_vault: ""
   })
 
   const wallet = useWallet();
@@ -259,13 +279,8 @@ function App() {
         },
         signers: [baseAccount]
       });
-      console.log("baseAccount.publicKey=" + baseAccount.publicKey.toBase58())
-      console.log('end super simple')
-      console.log("result=" +JSON.stringify(result))
+
       const account = await program.account.superSimpleSave.fetch(baseAccount.publicKey);
-      console.log('account: ', account);
-      console.log("Call count in the smart contract:" + account.callCount.toString());
-      console.log("What is stored in the smart contract:" + account.message.toString());
 
       setSavedMessage(account.message.toString());
 
@@ -277,7 +292,6 @@ function App() {
 
   async function getAmount(connection, ata_address) {
     let accountInfo = await getAccount(connection, ata_address);
-    console.log("current_amount=" + accountInfo.amount)
     return accountInfo.amount
   }
 
@@ -383,14 +397,11 @@ function App() {
         const connection = provider.connection;
 
         let currentAmountInAdminAta = String(await getAmount(connection, toMintInformation[i].admin_token_account_address.address))
-        console.log("give_myself_amount after=" + currentAmountInAdminAta);
 
         toMintInformation[i].current_amount_in_origin_admin_ata = currentAmountInAdminAta
       }
     }
 
-
-    
     setLoading(false)
   }
 
@@ -398,22 +409,12 @@ function App() {
       const provider = await getProvider()
       const connection = provider.connection;
 
-      console.log("give_myself_amount: mint is=" + mint.toBase58())
       let toTokenAccount = await getOrCreateAssociatedTokenAccount(
         connection, 
         admin, 
         mint, 
         provider.wallet.publicKey
       );
-
-      console.log("give_myself_amount: ATA is=" + toTokenAccount)
-
-      console.log("give_myself_amount: amount before:" +await getAmount(connection, toTokenAccount.address));
-
-
-      console.log("give_myself_amount: amount we want=" + state['give_myself_amount'])
-
-      console.log(admin_token_account_address.address)
 
       await transfer(
         connection,
@@ -425,7 +426,6 @@ function App() {
       );
 
       let amountAfter = String(await getAmount(connection, toTokenAccount.address))
-      console.log("give_myself_amount: amount after:" + amountAfter);
 
       for(let i = 0; i < exchangeBoothVaults.length ; i++) {
         if (exchangeBoothVaults[i].mint.toBase58() == mint.toBase58()) {
@@ -449,8 +449,6 @@ function App() {
     setLoading(true)
     for(let i = 0; i < toMintInformation.length ; i++) {
       if (toMintInformation[i].mint.toBase58() == state['mint_to_bootstrap']) {
-        console.log("Mint found to transfer")
-
         const newWallet = Keypair.generate();
 
         const provider = await getProvider()
@@ -462,10 +460,6 @@ function App() {
           toMintInformation[i].mint, 
           newWallet.publicKey
         );
-    
-        console.log("newTokenAccountATA="+newTokenAccountATA)
-        
-        console.log(await getAmount(connection, newTokenAccountATA.address));
 
         await transfer(
           connection,
@@ -477,11 +471,8 @@ function App() {
         );
       
         const newAmountForToken = await getAmount(connection, newTokenAccountATA.address)
-        console.log(newAmountForToken);
 
         let newAmountAdminAta = String(await getAmount(connection, toMintInformation[i].admin_token_account_address.address))
-
-        console.log("new amount for admin ata=" + newAmountAdminAta)
 
         toMintInformation[i].current_amount_in_origin_admin_ata = newAmountAdminAta
 
@@ -503,8 +494,6 @@ function App() {
         return
       }
     }
-
-    console.log("did not find mint to create new account with balance")
   }
 
   async function createMintHenryk() {    
@@ -513,10 +502,6 @@ function App() {
     /* create the program interface combining the idl, program ID, and provider */
     const program = new Program(idl, programID, provider);
     
-    console.log('amout to mint=' + state['to_mint_amount'])
-    console.log('create mint')
-    console.log('baseAccount=' + baseAccount.publicKey.toBase58())
-
     const connection = provider.connection;
 
     const fromWallet = Keypair.generate();
@@ -534,7 +519,6 @@ function App() {
       9, // 9 decimals
     );
 
-    console.log(`Create token: ${mintA.toBase58()}`);
 
     let fromTokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
@@ -542,10 +526,6 @@ function App() {
       mintA,
       fromWallet.publicKey
     );
-   
-    console.log(`Create Token Account: ${fromTokenAccount.address.toBase58()}`);
-
-		console.log(await getAmount(connection, fromTokenAccount.address));
 
     let signature = await mintTo(
       connection,
@@ -558,13 +538,10 @@ function App() {
     );
 		
     const originalMintAmount = String(await getAmount(connection, fromTokenAccount.address))
-
-    console.log(originalMintAmount);
-
-    console.log(`Mint to signature: ${signature}`);
     
     let currentAmountInAdminAta = String(await getAmount(connection, fromTokenAccount.address))
-		console.log("fromTokenAccount save to state=" + currentAmountInAdminAta);
+
+    await do_giving(mintA, fromWallet, fromTokenAccount, state['bootstrap_vault'])
 
     setToMintInformation(current => [
       ...current,
@@ -576,11 +553,6 @@ function App() {
         'current_amount_in_origin_admin_ata': currentAmountInAdminAta,
       }
     ])
-
-    await do_giving(mintA, fromWallet, fromTokenAccount, 10)
-
-    console.log('original amount=' + originalMintAmount)
-    console.log('added more')
 
     setBodyAndShow("New Mint Created")
     setRefresh(!refresh)
@@ -673,7 +645,7 @@ async function refreshVaults() {
                           <Nav.Link eventKey="fourth">Create Excahnge Booth</Nav.Link>
                         </Nav.Item>
                         <Nav.Item>
-                          <Nav.Link eventKey="fifth">My Account</Nav.Link>
+                          <Nav.Link eventKey="fifth">My Vaults</Nav.Link>
                         </Nav.Item>
                       </Nav>
                     </Col>
@@ -686,6 +658,8 @@ async function refreshVaults() {
                         <div>
                         Total to Mint
                           <input type="text" name="to_mint_amount" onChange={handleGenericChange}/>
+                        Total to bootstrap vault
+                          <input type="text" name="bootstrap_vault" onChange={handleGenericChange}/>
                           <Button onClick={createMintHenryk}>Create mint</Button>
                         </div>
                         </Tab.Pane>
