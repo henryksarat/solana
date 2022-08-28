@@ -2,6 +2,22 @@
   text-align: center;
 }
 
+.SomeSpace {
+  padding:2%;
+}
+
+.CenterFullScren {
+  width: 100%;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.JustAForm {
+  width: 80%;
+}
+
 .App-logo {
   height: 40vmin;
   pointer-events: none;

@@ -655,12 +655,28 @@ async function refreshVaults() {
                         <div>
                           <DisplayMintInformation mint_info={toMintInformation}></DisplayMintInformation>
                         </div>
-                        <div>
-                        Total to Mint
-                          <input type="text" name="to_mint_amount" onChange={handleGenericChange}/>
-                        Total to bootstrap vault
-                          <input type="text" name="bootstrap_vault" onChange={handleGenericChange}/>
-                          <Button onClick={createMintHenryk}>Create mint</Button>
+                        <div className="CenterFullScren">
+                          <div className="JustAForm">
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Total to Mint
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="to_mint_amount" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Total to bootstrap vault
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="bootstrap_vault" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <Button onClick={createMintHenryk}>Create mint</Button>
+                            </div>
+                          </div>
                         </div>
                         </Tab.Pane>
                         <Tab.Pane eventKey="second">
@@ -693,20 +709,28 @@ async function refreshVaults() {
                         </div>
                         </Tab.Pane>
                         <Tab.Pane eventKey="fifth">
-                          <div>
-                            <div>
-                              Mint 
-                              <input type="text" name="give_myself_mint" onChange={handleGenericChange}/>
-                            </div>
-                            <div>
-                              Amount
-                              <input type="text" name="give_myself_amount" onChange={handleGenericChange}/>
-                            </div>
-                            <div>
-                              <Button onClick={give_myself_amount}>Give Myself</Button>
-                            </div>
-                            <div>
-                            <DisplayVaultInformation vault_info={exchangeBoothVaults}></DisplayVaultInformation>
+                        <div className="CenterFullScren">
+                          <div className="JustAForm">
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">Mint </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="give_myself_mint" onChange={handleGenericChange}/>
+                                </span>
+                              </div>
+                              <div className="SomeSpace">
+                                <span className="SomeSpace">
+                                  Amount
+                                </span>
+                                <span className="SomeSpace">
+                                  <input type="text" name="give_myself_amount" onChange={handleGenericChange}/>
+                                </span>
+                              </div>
+                              <div className="SomeSpace">
+                                <Button onClick={give_myself_amount}>Give Myself</Button>
+                              </div>
+                              <div>
+                              <DisplayVaultInformation vault_info={exchangeBoothVaults}></DisplayVaultInformation>
+                              </div>
                             </div>
                           </div>
                         </Tab.Pane>
@@ -735,5 +759,6 @@ const AppWithProvider = () => (
     </WalletProvider>
   </ConnectionProvider>
 )
+
 
 export default AppWithProvider;
