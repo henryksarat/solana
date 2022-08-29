@@ -57,8 +57,6 @@ class DisplaySomething extends React.Component {
 
 class DisplayMintInformation extends React.Component {
   render() {
-      console.log(this.props.mint_info)
-    
       if(this.props.mint_info == null) {
         return ( 
           <label>
@@ -114,7 +112,6 @@ function threeDotStringRepresentation(item) {
 
 class DisplayVaultInformation extends React.Component {
   render() {    
-      console.log("here")
       if(this.props.vault_info == null) {
         return ( 
           <label>
@@ -164,26 +161,29 @@ class DisplayCreatedAccounts extends React.Component {
         </label>
         )
       }
-      console.log("accounts=" + this.props.accounts.length)
       
       var rows = []
-      for(let i = 0; i < this.props.accounts.length ; i++) {
-        
-        rows.push(
-          <tr key={i}>
-            <td>{i}</td>
-            <td>{this.props.accounts[i].account.publicKey.toBase58()}</td>
-            <td>{this.props.accounts[i].mint}</td>
-            <td>{this.props.accounts[i].amount}</td>
-          </tr>
-          )
-      }
+      {
+        [...this.props.accounts.keys()].map(k => (
+          [...this.props.accounts.get(k).mints.keys()].map(v => (
 
+
+            rows.push(
+            <tr key={k + v}>
+              <td>{this.props.accounts.get(k).account.publicKey.toBase58()}</td>
+              <td>{this.props.accounts.get(k).mints.get(v).mint}</td>
+              <td>{this.props.accounts.get(k).mints.get(v).amount}</td>
+            </tr>
+            )
+
+
+          ))
+        ))
+      }
    return (
           <Table striped bordered hover size="sm">
           <thead>
               <tr>
-                <th>index</th>
                 <th>Account</th>
                 <th>Mint</th>
                 <th>Amount</th>
@@ -205,7 +205,12 @@ function App() {
   const [toMintInformation, setToMintInformation] = useState([]);
   const [exchangeBoothVaults, setExchangeBoothVaults] = useState([]);
   const [myAccountInfo, setMyAccountInfo] = useState([]);
-  const [createdAccounts, setCreatedAccounts] = useState([]);
+  const [createdAccountsMap, setCreatedAccountsMap] = useState(new Map());
+  const updateMap = (k,v) => {
+    setCreatedAccountsMap(
+      new Map(createdAccountsMap.set(k,v))
+    );
+  }
 
   const [refresh, setRefresh] = useState(false);
 
@@ -248,7 +253,8 @@ function App() {
     mint_to_bootstrap_amount: "",
     give_myself_mint: "",
     give_myself_amount: "",
-    bootstrap_vault: ""
+    bootstrap_vault: "",
+    mint_to_bootstrap_into_account: ""
   })
 
   const wallet = useWallet();
@@ -297,9 +303,7 @@ function App() {
 
   function find_mint_in_vault(mint_address) {
     for(let i = 0; i < exchangeBoothVaults.length ; i++) {
-      console.log('mint is=' + exchangeBoothVaults[i].mint.toBase58())
       if (mint_address == exchangeBoothVaults[i].mint.toBase58()) {
-        console.log('found one')
         return exchangeBoothVaults[i]
       }
     }
@@ -447,9 +451,17 @@ function App() {
 
   async function createNewAccountWithMintInIt() {
     setLoading(true)
+
     for(let i = 0; i < toMintInformation.length ; i++) {
       if (toMintInformation[i].mint.toBase58() == state['mint_to_bootstrap']) {
-        const newWallet = Keypair.generate();
+        
+        const checkForKey = state['mint_to_bootstrap_into_account']
+
+        let currentRecord = createdAccountsMap.get(checkForKey)
+        let newWallet = Keypair.generate();
+        if(currentRecord != undefined) {
+          newWallet = currentRecord['account']
+        }
 
         const provider = await getProvider()
         const connection = provider.connection;
@@ -476,14 +488,25 @@ function App() {
 
         toMintInformation[i].current_amount_in_origin_admin_ata = newAmountAdminAta
 
-        setCreatedAccounts(current => [
-          ...current,
+        const key = newWallet.publicKey.toBase58()
+
+        let originalMints = new Map()
+        if(createdAccountsMap.get(key) != undefined) {
+          originalMints = createdAccountsMap.get(key).mints
+        }
+
+        originalMints.set(state['mint_to_bootstrap'], 
+        {
+          'mint': threeDotStringRepresentation(state['mint_to_bootstrap']),
+          'amount': String(newAmountForToken)
+        })
+
+        updateMap(key, 
           {
             'account': newWallet,
-            'mint': threeDotStringRepresentation(state['mint_to_bootstrap']),
-            'amount': String(newAmountForToken)
+            'mints': originalMints
           }
-        ])
+        )          
 
         refreshVaults()
 
@@ -680,15 +703,38 @@ async function refreshVaults() {
                         </div>
                         </Tab.Pane>
                         <Tab.Pane eventKey="second">
-                        <div>
-                          <DisplayCreatedAccounts accounts={createdAccounts}></DisplayCreatedAccounts>
-                        </div>
-                        <div>
-                          Mint
-                          <input type="text" name="mint_to_bootstrap" onChange={handleGenericChange}/>
-                          Amount
-                          <input type="text" name="mint_to_bootstrap_amount" onChange={handleGenericChange}/>
-                          <Button onClick={createNewAccountWithMintInIt}>Create address and transfer amount in there</Button>
+                        <div className="CenterFullScren">
+                          <div className="JustAForm">
+                            <div>
+                              <DisplayCreatedAccounts accounts={createdAccountsMap}></DisplayCreatedAccounts>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Account
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="mint_to_bootstrap_into_account" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Mint
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="mint_to_bootstrap" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Amount
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="mint_to_bootstrap_amount" onChange={handleGenericChange}/>
+                              </span>
+                          </div>
+                          <div className="SomeSpace"></div>
+                            <Button onClick={createNewAccountWithMintInIt}>Create address and transfer amount in there</Button>
+                          </div>
                         </div>
                         </Tab.Pane>
                         <Tab.Pane eventKey="third">
