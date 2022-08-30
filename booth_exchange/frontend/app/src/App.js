@@ -103,6 +103,9 @@ class DisplayMintInformation extends React.Component {
 }
 
 function threeDotStringRepresentation(item) {
+  if(item.length <= 5) {
+    return item
+  }
   let stringRepresentation = String(item)
   const finalString = stringRepresentation.substring(0, 5) 
     + "..." 
@@ -110,7 +113,7 @@ function threeDotStringRepresentation(item) {
   return finalString
 }
 
-class DisplayVaultInformation extends React.Component {
+class DisplayVaultInformationMap extends React.Component {
   render() {    
       if(this.props.vault_info == null) {
         return ( 
@@ -122,25 +125,29 @@ class DisplayVaultInformation extends React.Component {
       
       
       var rows = []
-      for(let i = 0; i < this.props.vault_info.length ; i++) {        
-        rows.push(
-          <tr key={i}>
-            <td>{i}</td>
-            <td>{this.props.vault_info[i].mint.toBase58()}</td>
-            <td>{threeDotStringRepresentation(this.props.vault_info[i].ata.address.toBase58())}</td>
-            <td>{this.props.vault_info[i].current_amount}</td>
-          </tr>
-          )
+      {
+        [...this.props.vault_info.keys()].map(k => (
+            rows.push(
+            <tr key={k}>
+              <td>{this.props.vault_info.get(k).mint.toBase58()}</td>
+              <td>{threeDotStringRepresentation(this.props.vault_info.get(k).ata.address.toBase58())}</td>
+              <td>{this.props.vault_info.get(k).current_amount}</td>
+              <td>{this.props.vault_info.get(k).deposit_amount_in_booth}</td>
+              <td>{threeDotStringRepresentation(this.props.vault_info.get(k).pda)}</td>
+            </tr>
+            )
+        ))
       }
 
    return (
           <Table striped bordered hover size="sm">
           <thead>
               <tr>
-                <th>index</th>
                 <th>Mint</th>
                 <th>ATA</th>
                 <th>Current Amount</th>
+                <th>Deposit Amount in Exchange Booth</th>
+                <th>PDA</th>
               </tr>
             </thead>
             <tbody>
@@ -204,11 +211,18 @@ function App() {
   
   const [toMintInformation, setToMintInformation] = useState([]);
   const [exchangeBoothVaults, setExchangeBoothVaults] = useState([]);
+  const [exchangeBoothVaultsMap, setExchangeBoothVaultsMap] = useState(new Map());
   const [myAccountInfo, setMyAccountInfo] = useState([]);
   const [createdAccountsMap, setCreatedAccountsMap] = useState(new Map());
   const updateMap = (k,v) => {
     setCreatedAccountsMap(
       new Map(createdAccountsMap.set(k,v))
+    );
+  }
+
+  const updateExchangeBoothVaultsMap = (k,v) => {
+    setExchangeBoothVaultsMap(
+      new Map(exchangeBoothVaultsMap.set(k,v))
     );
   }
 
@@ -345,7 +359,7 @@ function App() {
       programID
     ));
 
-    let [vaultBPDAKey, s] = (await PublicKey.findProgramAddress(
+    let [vaultBPDAKey, _other] = (await PublicKey.findProgramAddress(
       [
         anchor.utils.bytes.utf8.encode("EBVaultB"),
         mintB.mint.toBuffer(),
@@ -369,6 +383,28 @@ function App() {
         tokenProgram: TOKEN_PROGRAM_ID
       },
     });
+
+    updateExchangeBoothVaultsMap(
+      mintA.mint.toBase58(),
+      {
+        'mint': mintA.mint,
+        'ata': mintA.ata,
+        'current_amount': mintA.current_amount,
+        'deposit_amount_in_booth': mintA.deposit_amount_in_booth,
+        'pda': mintA.mint.toBase58()
+      }
+    )
+
+    updateExchangeBoothVaultsMap(
+      mintB.mint.toBase58(),
+      {
+        'mint': mintB.mint,
+        'ata': mintB.ata,
+        'current_amount': mintB.current_amount,
+        'deposit_amount_in_booth': mintB.deposit_amount_in_booth,
+        'pda': mintB.mint.toBase58()
+      }
+    )
 
     console.log("result = " + JSON.stringify(result))
     console.log("program_id="+programID)
@@ -409,6 +445,14 @@ function App() {
     setLoading(false)
   }
 
+  async function depositToVaults() {
+    setLoading(true)
+
+
+
+    setLoading(false)
+  }
+
   async function do_giving(mint, admin, admin_token_account_address, amount) {  
       const provider = await getProvider()
       const connection = provider.connection;
@@ -438,15 +482,28 @@ function App() {
         }
       }
       
+      console.log('do deposit')
       setExchangeBoothVaults(
       current => [
         ...current,
         {
           'mint': mint,
           'ata': toTokenAccount,
-          'current_amount': amount
+          'current_amount': amount,
+          'deposit_amount_in_booth': String(0)
         }
-    ])
+      ])
+
+      updateExchangeBoothVaultsMap(
+        mint.toBase58(),
+        {
+          'mint': mint,
+          'ata': toTokenAccount,
+          'current_amount': amount,
+          'deposit_amount_in_booth': String(0),
+          'pda': "NA"
+        }
+      )
   }
 
   async function createNewAccountWithMintInIt() {
@@ -670,6 +727,9 @@ async function refreshVaults() {
                         <Nav.Item>
                           <Nav.Link eventKey="fifth">My Vaults</Nav.Link>
                         </Nav.Item>
+                        <Nav.Item>
+                          <Nav.Link eventKey="sixth">Vault Deposit</Nav.Link>
+                        </Nav.Item>
                       </Nav>
                     </Col>
                     <Col sm={9}>
@@ -748,10 +808,28 @@ async function refreshVaults() {
                         </div>
                         </Tab.Pane>
                         <Tab.Pane eventKey="fourth">
-                        <div>
-                          <input type="text" name="first_mint_exchange_booth" onChange={handleGenericChange}/>
-                          <input type="text" name="second_mint_exchange_booth" onChange={handleGenericChange}/>
-                          <Button onClick={createExchangeBooth}>Create Exchange Booth</Button>
+                        <div className="CenterFullScren">
+                          <div className="JustAForm">
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Mint A
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="first_mint_exchange_booth" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Mint B
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="second_mint_exchange_booth" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <Button onClick={createExchangeBooth}>Create Exchange Booth</Button>
+                            </div>
+                          </div>
                         </div>
                         </Tab.Pane>
                         <Tab.Pane eventKey="fifth">
@@ -775,10 +853,51 @@ async function refreshVaults() {
                                 <Button onClick={give_myself_amount}>Give Myself</Button>
                               </div>
                               <div>
-                              <DisplayVaultInformation vault_info={exchangeBoothVaults}></DisplayVaultInformation>
+                              <DisplayVaultInformationMap vault_info={exchangeBoothVaultsMap}></DisplayVaultInformationMap>
                               </div>
                             </div>
                           </div>
+                        </Tab.Pane>
+                        <Tab.Pane eventKey="sixth">
+                        <div className="CenterFullScren">
+                          <div className="JustAForm">
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Mint A
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="deposit_mint_a" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Mint A Amount
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="deposit_mint_a_amount" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Mint B
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="deposit_mint_b" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Mint B Amount
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="deposit_mint_b_amount" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <Button onClick={depositToVaults}>Deposit To Vaults</Button>
+                            </div>
+                          </div>
+                        </div>
                         </Tab.Pane>
                       </Tab.Content>
                     </Col>
