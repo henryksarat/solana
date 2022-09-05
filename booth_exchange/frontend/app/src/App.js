@@ -216,9 +216,7 @@ function App() {
   const [savedMessage, setSavedMessage] = useState(null);
   
   const [toMintInformation, setToMintInformation] = useState([]);
-  const [exchangeBoothVaults, setExchangeBoothVaults] = useState([]);
   const [exchangeBoothVaultsMap, setExchangeBoothVaultsMap] = useState(new Map());
-  const [myAccountInfo, setMyAccountInfo] = useState([]);
   const [createdAccountsMap, setCreatedAccountsMap] = useState(new Map());
   const updateMap = (k,v) => {
     setCreatedAccountsMap(
@@ -594,36 +592,35 @@ function App() {
       );
 
       let amountAfter = String(await getAmount(connection, toTokenAccount.address))
+        console.log("amount after is=" + amountAfter)
 
-      for(let i = 0; i < exchangeBoothVaults.length ; i++) {
-        if (exchangeBoothVaults[i].mint.toBase58() == mint.toBase58()) {
-          exchangeBoothVaults[i].current_amount = amountAfter
-          return
-        }
-      }
-      
       console.log('do deposit')
-      setExchangeBoothVaults(
-      current => [
-        ...current,
-        {
-          'mint': mint,
-          'ata': toTokenAccount,
-          'current_amount': amount,
-          'deposit_amount_in_booth': String(0)
-        }
-      ])
 
-      updateExchangeBoothVaultsMap(
-        mint.toBase58(),
-        {
-          'mint': mint,
-          'ata': toTokenAccount,
-          'current_amount': amount,
-          'deposit_amount_in_booth': String(0),
-          'pda': "NA"
-        }
-      )
+      let mintVaultInfo = exchangeBoothVaultsMap.get(mint.toBase58())
+
+      if (mintVaultInfo != undefined) {
+        updateExchangeBoothVaultsMap(
+          mint.toBase58(),
+          {
+            'mint': mintVaultInfo.mint,
+            'ata': mintVaultInfo.ata,
+            'current_amount': amountAfter,
+            'deposit_amount_in_booth': mintVaultInfo.deposit_amount_in_booth,
+            'pda': mintVaultInfo.pda
+          }
+        )
+      } else {
+        updateExchangeBoothVaultsMap(
+          mint.toBase58(),
+          {
+            'mint': mint,
+            'ata': toTokenAccount,
+            'current_amount': amount,
+            'deposit_amount_in_booth': String(0),
+            'pda': "NA"
+          }
+        )
+      }
   }
 
   async function createNewAccountWithMintInIt() {
@@ -684,8 +681,6 @@ function App() {
             'mints': originalMints
           }
         )          
-
-        refreshVaults()
 
         setBodyAndShow("New account created: " + threeDotStringRepresentation(newWallet.publicKey))
         setRefresh(!refresh)
@@ -771,18 +766,6 @@ async function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
-}
-
-async function refreshVaults() {
-  const provider = await getProvider()
-  const connection = provider.connection;
-
-  for(let i = 0; i < exchangeBoothVaults.length ; i++) {
-    console.log(exchangeBoothVaults[i].ata.address.toBase58())
-    let amount = await getAmount(connection, exchangeBoothVaults[i].ata.address)
-    exchangeBoothVaults[i].current_amount = String(37)
-    console.log("amount is=" + amount)
-  }
 }
 
   async function setBodyAndShow(message) {
