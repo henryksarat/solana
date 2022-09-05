@@ -322,11 +322,12 @@ function App() {
   }
 
   function find_mint_in_vault(mint_address) {
-    for(let i = 0; i < exchangeBoothVaults.length ; i++) {
-      if (mint_address == exchangeBoothVaults[i].mint.toBase58()) {
-        return exchangeBoothVaults[i]
-      }
-    }
+    return exchangeBoothVaultsMap.get(mint_address)
+    // for(let i = 0; i < exchangeBoothVaults.length ; i++) {
+    //   if (mint_address == exchangeBoothVaults[i].mint.toBase58()) {
+    //     return exchangeBoothVaults[i]
+    //   }
+    // }
   }
 
   async function createExchangeBooth() {
@@ -336,17 +337,25 @@ function App() {
     
     console.log("program_id=" +programID)
 
-    if (exchangeBoothVaults == null || exchangeBoothVaults.length != 2) {
+    if (exchangeBoothVaultsMap.size < 2) {
       console.log('not enough mints')
       return
     }
 
-    const mintA = find_mint_in_vault(state['first_mint_exchange_booth'])
-    const mintB = find_mint_in_vault(state['second_mint_exchange_booth'])
+    console.log("first one=" + state['first_mint_exchange_booth'])
+    console.log("second one=" + state['second_mint_exchange_booth'])
+
+    const mintA = exchangeBoothVaultsMap.get(state['first_mint_exchange_booth'])
+    const mintB = exchangeBoothVaultsMap.get(state['second_mint_exchange_booth'])
+
 
     console.log("mint A=" + mintA)
     console.log("mint B=" + mintB)
 
+    if (mintA == undefined || mintB== undefined) {
+      console.log('Undefined mints')
+      return
+    }
 
     let [adminPdaKey, _adminPdaBump] = (await PublicKey.findProgramAddress(
       [
