@@ -80,6 +80,8 @@ pub mod booth_exchange {
             }
         };
         
+        msg!("passed all checks");
+
         tweet.payer = *payer.key;
         tweet.program_id = *system_program.key;
         tweet.mint_a = *mint_a.key;
@@ -90,6 +92,8 @@ pub mod booth_exchange {
         tweet.admin = *admin.key;
         tweet.bump = *ctx.bumps.get("data_location").unwrap();
         tweet.fee = fee;
+
+        msg!("stored");
 
         Ok(())
     }

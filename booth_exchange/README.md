@@ -43,3 +43,9 @@ Option 2:
 cargo test-bpf --manifest-path=./Cargo.toml
 anchor test
 ```
+
+## Build and copy idl
+This assumest that this is checked out in /Users/{username}/Documents/Coding/ and in the solana/booth_exchange directory. Replace {username} with your account
+```
+anchor build; solana program deploy /Users/{username}/Documents/Coding/solana/solana/booth_exchange/target/deploy/booth_exchange.so; cp target/idl/booth_exchange.json frontend/app/src/idl.json
+```

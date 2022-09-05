@@ -1,3 +1,5 @@
+
+
 import * as anchor from "@project-serum/anchor";
 import './App.css';
 import React from 'react';
@@ -25,11 +27,13 @@ import {
   createMint,
   TOKEN_PROGRAM_ID,
   getOrCreateAssociatedTokenAccount,
+  getAssociatedTokenAddress,
   mintTo,
   getAccount,
   transfer,
 } from "@solana/spl-token"; 
 require('@solana/wallet-adapter-react-ui/styles.css');
+const BN = require("bn.js");
 
 const wallets = [
   /* view list of available wallets at https://github.com/solana-labs/wallet-adapter#wallets */
@@ -123,6 +127,8 @@ class DisplayVaultInformationMap extends React.Component {
         )
       }
       
+
+      
       
       var rows = []
       {
@@ -133,7 +139,7 @@ class DisplayVaultInformationMap extends React.Component {
               <td>{threeDotStringRepresentation(this.props.vault_info.get(k).ata.address.toBase58())}</td>
               <td>{this.props.vault_info.get(k).current_amount}</td>
               <td>{this.props.vault_info.get(k).deposit_amount_in_booth}</td>
-              <td>{threeDotStringRepresentation(this.props.vault_info.get(k).pda)}</td>
+              <td>{this.props.vault_info.get(k).pda == "NA" ? "NA" : threeDotStringRepresentation(this.props.vault_info.get(k).pda.toBase58())}</td>
             </tr>
             )
         ))
@@ -310,7 +316,7 @@ function App() {
     }
   }
 
-  async function getAmount(connection, ata_address) {
+  async function  getAmount(connection, ata_address) {
     let accountInfo = await getAccount(connection, ata_address);
     return accountInfo.amount
   }
@@ -390,8 +396,8 @@ function App() {
         'mint': mintA.mint,
         'ata': mintA.ata,
         'current_amount': mintA.current_amount,
-        'deposit_amount_in_booth': mintA.deposit_amount_in_booth,
-        'pda': mintA.mint.toBase58()
+        'deposit_amount_in_booth': String(0),
+        'pda': vaultAPDAKey
       }
     )
 
@@ -401,8 +407,8 @@ function App() {
         'mint': mintB.mint,
         'ata': mintB.ata,
         'current_amount': mintB.current_amount,
-        'deposit_amount_in_booth': mintB.deposit_amount_in_booth,
-        'pda': mintB.mint.toBase58()
+        'deposit_amount_in_booth': String(0),
+        'pda': vaultBPDAKey
       }
     )
 
@@ -448,6 +454,111 @@ function App() {
   async function depositToVaults() {
     setLoading(true)
 
+    const provider = await getProvider()
+    const program = new Program(idl, programID, provider);
+    const connection = provider.connection;
+
+    const firstMint = exchangeBoothVaultsMap.get(state['deposit_mint_a'])
+    const secondMint = exchangeBoothVaultsMap.get(state['deposit_mint_b'])
+
+    console.log("depositToVaults=" + firstMint.mint.toBase58())
+    console.log("depositToVaults=" + secondMint.mint.toBase58())
+
+    let [adminPdaKey, adminPdaBump] = (await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("ebpda"),
+        firstMint.mint.toBuffer(),
+        secondMint.mint.toBuffer()
+      ],
+      program.programId
+    ));
+
+    let [vaultAPDAKey, _] = (await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("EBVaultA"),
+        firstMint.mint.toBuffer(),
+      ],
+      programID
+    ));
+
+    let [vaultBPDAKey, _other] = (await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("EBVaultB"),
+        secondMint.mint.toBuffer(),
+      ],
+      programID
+    ));
+
+    let vaultAATA = await getAssociatedTokenAddress(
+      firstMint.mint,
+      provider.wallet.publicKey
+    );
+
+    let vaultBATA = await getAssociatedTokenAddress(
+      secondMint.mint,
+      provider.wallet.publicKey
+    );
+
+    console.log(firstMint.mint)
+    console.log(vaultAATA)
+    console.log(vaultAPDAKey)
+    console.log(adminPdaKey)
+
+    console.log(secondMint.mint)
+    console.log(vaultBATA)
+    console.log(vaultBPDAKey)
+    console.log(adminPdaKey)
+
+    let result = await program.rpc.deposit(
+        new BN(state['deposit_mint_a_amount'], 10), 
+        new BN(state['deposit_mint_b_amount'], 10)
+      , { accounts:{
+      payer: provider.wallet.publicKey,
+      systemProgram: SystemProgram.programId,
+      mintA: firstMint.mint,
+      mintB: secondMint.mint,
+      vaultATransferOutOf: vaultAATA,
+      vaultBTransferOutOf: vaultBATA,
+      dataLocation: adminPdaKey,
+      vaultAPda: vaultAPDAKey,
+      vaultBPda: vaultBPDAKey,
+      admin: provider.wallet.publicKey,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      programmId: program.programId,
+    }});
+
+    console.log("Result from deposit=" + result)
+    let firstMintVaultInfo = exchangeBoothVaultsMap.get(firstMint.mint.toBase58())
+
+    updateExchangeBoothVaultsMap(
+      firstMint.mint.toBase58(),
+      {
+        'mint': firstMintVaultInfo.mint,
+        'ata': firstMintVaultInfo.ata,
+        'current_amount': String(await getAmount(connection, firstMintVaultInfo.ata.address)),
+        'deposit_amount_in_booth': String(await getAmount(connection, firstMintVaultInfo.pda)),
+        'pda': firstMintVaultInfo.pda
+      }
+    )
+
+    let secondMintVaultInfo = exchangeBoothVaultsMap.get(secondMint.mint.toBase58())
+
+    updateExchangeBoothVaultsMap(
+      secondMint.mint.toBase58(),
+      {
+        'mint': secondMintVaultInfo.mint,
+        'ata': secondMintVaultInfo.ata,
+        'current_amount': String(await getAmount(connection, secondMintVaultInfo.ata.address)),
+        'deposit_amount_in_booth': String(await getAmount(connection, secondMintVaultInfo.pda)),
+        'pda': secondMintVaultInfo.pda
+      }
+    )
+
+
+
+    let depositMintAAmount = state['deposit_mint_a_amount']
+    let depositMintB = state['deposit_mint_b']
+    let depositMintBAmount = state['deposit_mint_b_amount']
 
 
     setLoading(false)
@@ -722,7 +833,7 @@ async function refreshVaults() {
                           <Nav.Link eventKey="third">Sample Smart Contract</Nav.Link>
                         </Nav.Item>
                         <Nav.Item>
-                          <Nav.Link eventKey="fourth">Create Excahnge Booth</Nav.Link>
+                          <Nav.Link eventKey="fourth">Create Exchange Booth</Nav.Link>
                         </Nav.Item>
                         <Nav.Item>
                           <Nav.Link eventKey="fifth">My Vaults</Nav.Link>
