@@ -260,7 +260,7 @@ function App() {
 
     executeUpdateOfAmounts().catch(console.error);
 
-  }, [toMintInformation]);
+  }, [toMintInformation, exchangeBoothVaultsMap]);
 
   const [state, setState] = React.useState({
     first_mint_exchange_booth: "",
@@ -506,16 +506,6 @@ function App() {
       provider.wallet.publicKey
     );
 
-    console.log(firstMint.mint)
-    console.log(vaultAATA)
-    console.log(vaultAPDAKey)
-    console.log(adminPdaKey)
-
-    console.log(secondMint.mint)
-    console.log(vaultBATA)
-    console.log(vaultBPDAKey)
-    console.log(adminPdaKey)
-
     let result = await program.rpc.deposit(
         new BN(state['deposit_mint_a_amount'], 10), 
         new BN(state['deposit_mint_b_amount'], 10)
@@ -560,13 +550,6 @@ function App() {
         'pda': secondMintVaultInfo.pda
       }
     )
-
-
-
-    let depositMintAAmount = state['deposit_mint_a_amount']
-    let depositMintB = state['deposit_mint_b']
-    let depositMintBAmount = state['deposit_mint_b_amount']
-
 
     setLoading(false)
   }
