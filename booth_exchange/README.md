@@ -1,12 +1,17 @@
 ## Implemented
+
 ### Smart contract:
 * Create Exchange Booth - As an admin create an exchange rate between two tokens
 * Deposit to Excahnge Booth - As an admin, deposit into the vault of both Mints in the Exchange Booth. This is using PDA's. (Program Derived Addresses)
-* Trade - As a customer exchange between Token A and B or between Token B and A
+* Swap - As a customer exchange between Token A and B or between Token B and A
 
 ### UI:
-* Simple react app that simply allows connection to the Phantom Wallet
-* Executes against one of the smart contract actions to save a string and retrieve the string (localhost and devnet)
+
+![Exchange Booth](https://github.com/henryksarat/solana/blob/main/images/exchange_booth_vault_home.png)
+
+- Simple react app that allows connection to the Phantom Wallet
+- Functions: 
+    - Mint token, add mint to a brand new account, create the exchange booth
 * Create token, mint, and also give to the current wallet
 
 ## TODO
