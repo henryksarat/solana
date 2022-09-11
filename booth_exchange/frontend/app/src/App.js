@@ -260,7 +260,7 @@ function App() {
 
     executeUpdateOfAmounts().catch(console.error);
 
-  }, [toMintInformation, exchangeBoothVaultsMap]);
+  }, [toMintInformation]);
 
   const [state, setState] = React.useState({
     first_mint_exchange_booth: "",
@@ -317,15 +317,6 @@ function App() {
   async function  getAmount(connection, ata_address) {
     let accountInfo = await getAccount(connection, ata_address);
     return accountInfo.amount
-  }
-
-  function find_mint_in_vault(mint_address) {
-    return exchangeBoothVaultsMap.get(mint_address)
-    // for(let i = 0; i < exchangeBoothVaults.length ; i++) {
-    //   if (mint_address == exchangeBoothVaults[i].mint.toBase58()) {
-    //     return exchangeBoothVaults[i]
-    //   }
-    // }
   }
 
   async function createExchangeBooth() {
@@ -397,6 +388,7 @@ function App() {
       },
     });
 
+    // Simply to set the PDA key
     updateExchangeBoothVaultsMap(
       mintA.mint.toBase58(),
       {
@@ -408,6 +400,7 @@ function App() {
       }
     )
 
+    // Simply to set the PDA key
     updateExchangeBoothVaultsMap(
       mintB.mint.toBase58(),
       {
@@ -455,6 +448,7 @@ function App() {
       }
     }
 
+    refreshVaults()
     setLoading(false)
   }
 
@@ -525,31 +519,8 @@ function App() {
     }});
 
     console.log("Result from deposit=" + result)
-    let firstMintVaultInfo = exchangeBoothVaultsMap.get(firstMint.mint.toBase58())
-
-    updateExchangeBoothVaultsMap(
-      firstMint.mint.toBase58(),
-      {
-        'mint': firstMintVaultInfo.mint,
-        'ata': firstMintVaultInfo.ata,
-        'current_amount': String(await getAmount(connection, firstMintVaultInfo.ata.address)),
-        'deposit_amount_in_booth': String(await getAmount(connection, firstMintVaultInfo.pda)),
-        'pda': firstMintVaultInfo.pda
-      }
-    )
-
-    let secondMintVaultInfo = exchangeBoothVaultsMap.get(secondMint.mint.toBase58())
-
-    updateExchangeBoothVaultsMap(
-      secondMint.mint.toBase58(),
-      {
-        'mint': secondMintVaultInfo.mint,
-        'ata': secondMintVaultInfo.ata,
-        'current_amount': String(await getAmount(connection, secondMintVaultInfo.ata.address)),
-        'deposit_amount_in_booth': String(await getAmount(connection, secondMintVaultInfo.pda)),
-        'pda': secondMintVaultInfo.pda
-      }
-    )
+   
+    refreshVaults()
 
     setLoading(false)
   }
@@ -574,25 +545,11 @@ function App() {
         amount
       );
 
-      let amountAfter = String(await getAmount(connection, toTokenAccount.address))
-        console.log("amount after is=" + amountAfter)
-
       console.log('do deposit')
 
       let mintVaultInfo = exchangeBoothVaultsMap.get(mint.toBase58())
 
-      if (mintVaultInfo != undefined) {
-        updateExchangeBoothVaultsMap(
-          mint.toBase58(),
-          {
-            'mint': mintVaultInfo.mint,
-            'ata': mintVaultInfo.ata,
-            'current_amount': amountAfter,
-            'deposit_amount_in_booth': mintVaultInfo.deposit_amount_in_booth,
-            'pda': mintVaultInfo.pda
-          }
-        )
-      } else {
+      if(mintVaultInfo == undefined) {
         updateExchangeBoothVaultsMap(
           mint.toBase58(),
           {
@@ -605,6 +562,7 @@ function App() {
         )
       }
   }
+
 
   async function createNewAccountWithMintInIt() {
     setLoading(true)
@@ -647,23 +605,38 @@ function App() {
 
         const key = newWallet.publicKey.toBase58()
 
-        let originalMints = new Map()
-        if(createdAccountsMap.get(key) != undefined) {
-          originalMints = createdAccountsMap.get(key).mints
+        if(createdAccountsMap.get(key) == undefined) {
+          updateMap(key, 
+            {
+              'account': newWallet,
+              'mints': new Map()
+            }
+          ) 
         }
 
-        originalMints.set(state['mint_to_bootstrap'], 
-        {
-          'mint': threeDotStringRepresentation(state['mint_to_bootstrap']),
-          'amount': String(newAmountForToken)
-        })
 
-        updateMap(key, 
+        let originalMints = createdAccountsMap.get(key).mints
+
+        if(originalMints.get(state['mint_to_bootstrap']) == undefined) {
+          console.log("DO THE SET")
+          originalMints.set(state['mint_to_bootstrap'], 
           {
-            'account': newWallet,
-            'mints': originalMints
-          }
-        )          
+            'mint': threeDotStringRepresentation(state['mint_to_bootstrap']),
+            'full_mint': toMintInformation[i].mint,
+            'amount': String(newAmountForToken),
+            'ata': newTokenAccountATA
+          })
+
+          updateMap(key, 
+            {
+              'account': newWallet,
+              'mints': originalMints
+            }
+          )
+        } else {
+          console.log("DO THE REFRESH")
+          refreshAccounts()
+        }
 
         setBodyAndShow("New account created: " + threeDotStringRepresentation(newWallet.publicKey))
         setRefresh(!refresh)
@@ -671,6 +644,30 @@ function App() {
 
         return
       }
+    }
+  }
+
+  async function refreshAccounts() {
+    const provider = await getProvider()
+    const connection = provider.connection;
+
+    console.log("refresh accounts")
+    for (let [key, _] of createdAccountsMap) {
+      console.log("refresh accounts=" + key)
+      let accountInfo = createdAccountsMap.get(key)
+
+      let mints = accountInfo.mints
+
+      for (let [mintKey, _] of mints) {
+        let singleMint = mints.get(mintKey)
+        singleMint.amount =  String(await getAmount(connection, singleMint.ata.address))
+      }
+
+      updateMap(key, 
+      {
+        'account': accountInfo.account,
+        'mints': mints
+      })
     }
   }
 
@@ -745,6 +742,126 @@ function handleGenericChange(evt) {
   });
 }
 
+async function swapTokens(evt) {
+
+  setLoading(true)
+  const fromMint = state['swap_from_mint']
+  const toMint = state['swap_to_mint']
+  const fromAmount = state['swap_from_amount']
+  const account = state['swap_account']
+
+  const sourceAccount = createdAccountsMap.get(account)
+
+  const fromMintAccount = sourceAccount.mints.get(fromMint)
+  const toMintAccount = sourceAccount.mints.get(toMint)
+
+  const provider = await getProvider()
+  /* create the program interface combining the idl, program ID, and provider */
+  const program = new Program(idl, programID, provider);
+
+  console.log("from account ata stored=" + fromMintAccount.ata.address)
+  console.log("to account ata stored=" + toMintAccount.ata.address)
+  console.log("mint public key=" + fromMintAccount.full_mint)
+
+  let ataOfFromMintForAccount = await getAssociatedTokenAddress(
+    sourceAccount.mints.get(fromMint).full_mint,
+    createdAccountsMap.get(account).account.publicKey
+  );
+
+  let ataOfToMintAccount = await getAssociatedTokenAddress(
+    sourceAccount.mints.get(toMint).full_mint,
+    createdAccountsMap.get(account).account.publicKey
+  );
+
+  console.log("found ata of FROM mint=" + ataOfFromMintForAccount)
+  console.log("found ata of TO mint=" + ataOfToMintAccount)
+
+  let [adminPdaKey, _adminPdaBump] = (await PublicKey.findProgramAddress(
+    [
+      anchor.utils.bytes.utf8.encode("ebpda"),
+      fromMintAccount.full_mint.toBuffer(),
+      toMintAccount.full_mint.toBuffer(),
+    ],
+    programID
+  ));
+
+  let [vaultAPDAKey, _] = (await PublicKey.findProgramAddress(
+    [
+      anchor.utils.bytes.utf8.encode("EBVaultA"),
+      fromMintAccount.full_mint.toBuffer(),
+    ],
+    programID
+  ));
+
+  let [vaultBPDAKey, _other] = (await PublicKey.findProgramAddress(
+    [
+      anchor.utils.bytes.utf8.encode("EBVaultB"),
+      toMintAccount.full_mint.toBuffer(),
+    ],
+    programID
+  ));
+
+  let result = await program.rpc.executeTrade(
+    new BN(fromAmount, 10), 
+    fromMintAccount.full_mint,
+    toMintAccount.full_mint,
+    { 
+    accounts:{
+      // usually would be the person we 
+      // made the account for but this is a simulation
+      payer: provider.wallet.publicKey, 
+      systemProgram: SystemProgram.programId,
+      customer: sourceAccount.account.publicKey,
+      mintA: fromMintAccount.full_mint,
+      mintB: toMintAccount.full_mint,
+      vaultACustomer: ataOfFromMintForAccount,
+      vaultBCustomer: ataOfToMintAccount,
+      dataLocation: adminPdaKey,
+      vaultAPda: vaultAPDAKey,
+      vaultBPda: vaultBPDAKey,
+      admin: provider.wallet.publicKey,
+      programmId: program.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    },
+    signers:[sourceAccount.account]
+  });
+
+  console.log('done doing swap=' + result)
+  refreshVaults()
+  setLoading(false)
+}
+
+async function refreshVaults() {
+
+  console.log('refreshVaults')
+  const provider = await getProvider()
+  const connection = provider.connection;
+
+  for (let [key, _] of exchangeBoothVaultsMap) {
+    
+      let mintVaultInfo = exchangeBoothVaultsMap.get(key)
+
+      let amount = String(await getAmount(connection, mintVaultInfo.ata.address))
+      
+      let pdaAmount = String(0)
+
+      if (mintVaultInfo.pda != "NA" ) {
+        pdaAmount = String(await getAmount(connection, mintVaultInfo.pda))
+      }
+
+      updateExchangeBoothVaultsMap(
+        key,
+        {
+          'mint': mintVaultInfo.mint,
+          'ata': mintVaultInfo.ata,
+          'current_amount': amount,
+          'deposit_amount_in_booth': pdaAmount,
+          'pda': mintVaultInfo.pda
+        }
+      )
+    } 
+}
+
 async function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -815,6 +932,9 @@ async function sleep(ms) {
                         </Nav.Item>
                         <Nav.Item>
                           <Nav.Link eventKey="sixth">Vault Deposit</Nav.Link>
+                        </Nav.Item>
+                        <Nav.Item>
+                          <Nav.Link eventKey="seventh">Swap</Nav.Link>
                         </Nav.Item>
                       </Nav>
                     </Col>
@@ -981,6 +1101,47 @@ async function sleep(ms) {
                             </div>
                             <div className="SomeSpace">
                               <Button onClick={depositToVaults}>Deposit To Vaults</Button>
+                            </div>
+                          </div>
+                        </div>
+                        </Tab.Pane>
+                        <Tab.Pane eventKey="seventh">
+                        <div className="CenterFullScren">
+                          <div className="JustAForm">
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Account
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="swap_account" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                From Mint
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="swap_from_mint" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                From Mint Amount
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="swap_from_amount" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                To Mint
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="swap_to_mint" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <Button onClick={swapTokens}>Execute Swap</Button>
                             </div>
                           </div>
                         </div>
