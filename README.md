@@ -3,7 +3,7 @@
 # Folders (Each one has a Read Me)
 
 # booth_exchange
-![Exchange Booth](https://github.com/henryksarat/solana/images/exchange_booth_vault_home.png)
+![Exchange Booth](https://github.com/henryksarat/solana/blob/main/images/exchange_booth_vault_home.png)
 
 This folder contains code for the Exchange Booth Solana Bootcamp milestone project. This is the Youtube series: https://www.youtube.com/watch?v=O0uhZEfVPt8&list=PLilwLeBwGuK7Z2dXft_pmLZ675fuPgkA0&index=1
 
