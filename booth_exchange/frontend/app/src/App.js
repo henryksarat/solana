@@ -452,6 +452,10 @@ function App() {
     setLoading(false)
   }
 
+  async function refreshAll() {
+    refreshVaults()
+    refreshAccounts()
+  }
   async function depositToVaults() {
     setLoading(true)
 
@@ -827,7 +831,7 @@ async function swapTokens(evt) {
   });
 
   console.log('done doing swap=' + result)
-  refreshVaults()
+  refreshAll()
   setLoading(false)
 }
 
