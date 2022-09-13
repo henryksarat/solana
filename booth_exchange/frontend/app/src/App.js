@@ -75,9 +75,8 @@ class DisplayMintInformation extends React.Component {
       for(let i = 0; i < this.props.mint_info.length ; i++) {
         rows.push(
           <tr key={i}>
-            <td>{i}</td>
             <td>{this.props.mint_info[i].alias}</td>
-            <td>{this.props.mint_info[i].mint.toBase58()}</td>
+            <td>{threeDotStringRepresentation(this.props.mint_info[i].mint.toBase58())}</td>
             <td>{threeDotStringRepresentation(this.props.mint_info[i].admin.publicKey.toBase58())}</td>
             <td>{threeDotStringRepresentation(this.props.mint_info[i].admin_token_account_address.address.toBase58())}</td>
             <td>{this.props.mint_info[i].amount_minted}</td>
@@ -90,7 +89,6 @@ class DisplayMintInformation extends React.Component {
           <Table striped bordered hover size="sm">
           <thead>
               <tr>
-                <th>index</th>
                 <th>Alias</th>
                 <th>Mint</th>
                 <th>Admin Public Key</th>
@@ -129,14 +127,12 @@ class DisplayVaultInformationMap extends React.Component {
         )
       }
       
-
-      
-      
       var rows = []
       {
         [...this.props.vault_info.keys()].map(k => (
             rows.push(
             <tr key={k}>
+              <td>{this.props.alias_loopup(this.props.vault_info.get(k).mint.toBase58())}</td>
               <td>{this.props.vault_info.get(k).mint.toBase58()}</td>
               <td>{threeDotStringRepresentation(this.props.vault_info.get(k).ata.address.toBase58())}</td>
               <td>{this.props.vault_info.get(k).current_amount}</td>
@@ -151,6 +147,7 @@ class DisplayVaultInformationMap extends React.Component {
           <Table striped bordered hover size="sm">
           <thead>
               <tr>
+                <th>Alias</th>
                 <th>Mint</th>
                 <th>ATA</th>
                 <th>Current Amount</th>
@@ -212,6 +209,16 @@ class DisplayCreatedAccounts extends React.Component {
    );
  }
 }
+
+const ColoredLine = ({ color }) => (
+  <hr
+      style={{
+          color: color,
+          backgroundColor: color,
+          height: 5
+      }}
+  />
+);
 
 function App() {
   const [value, setValue] = useState(null);
@@ -906,6 +913,16 @@ function getMintFromAlias(alias) {
   }
 }
 
+function getAliasFromMintPublicKey(mint_base58) {
+  for (let [key, value] of aliasToMintMap) {
+    if(value == mint_base58) {
+      return key
+    }
+  }
+
+  return ""
+}
+
 async function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -955,9 +972,14 @@ async function sleep(ms) {
                 </div>
 
                 <div>
-                  <div>
-                    Auction House
+                  <div className="CenterFullScren">
+                    <header>
+                      <h1>
+                        Auction House
+                      </h1>
+                    </header>
                   </div>
+                  <ColoredLine color="#00c2cb" />
                 <Tab.Container id="left-tabs-example" defaultActiveKey="first">
                   <Row>
                     <Col sm={3}>
@@ -991,6 +1013,7 @@ async function sleep(ms) {
                         <div>
                           <DisplayMintInformation mint_info={toMintInformation}></DisplayMintInformation>
                         </div>
+                        <ColoredLine color="#00c2cb" />
                         <div className="CenterFullScren">
                           <div className="JustAForm">
                             <div className="SomeSpace">
@@ -1029,6 +1052,7 @@ async function sleep(ms) {
                             <div>
                               <DisplayCreatedAccounts accounts={createdAccountsMap}></DisplayCreatedAccounts>
                             </div>
+                            <ColoredLine color="#00c2cb" />
                             <div className="SomeSpace">
                               <span className="SomeSpace">
                                 Account
@@ -1060,9 +1084,10 @@ async function sleep(ms) {
                         </Tab.Pane>
                         <Tab.Pane eventKey="third">
                         <div>
-                          Stored value: 
+                          Stored value:  
                           <DisplaySomething message={savedMessage}></DisplaySomething>
                         </div>
+                        <ColoredLine color="#00c2cb" />
                         <div>
                           <input type="text" name="to_save" onChange={handleGenericChange}/>
                           <Button onClick={createCounter}>Execute</Button>
@@ -1112,6 +1137,13 @@ async function sleep(ms) {
                         <Tab.Pane eventKey="fifth">
                         <div className="CenterFullScren">
                           <div className="JustAForm">
+                            <div>
+                              <DisplayVaultInformationMap 
+                                vault_info={exchangeBoothVaultsMap}
+                                alias_loopup={(mint_base58) => getAliasFromMintPublicKey(mint_base58)}>
+                              </DisplayVaultInformationMap>
+                            </div>
+                            <ColoredLine color="#00c2cb" />
                             <div className="SomeSpace">
                               <span className="SomeSpace">Mint </span>
                               <span className="SomeSpace">
@@ -1128,9 +1160,6 @@ async function sleep(ms) {
                               </div>
                               <div className="SomeSpace">
                                 <Button onClick={give_myself_amount}>Give Myself</Button>
-                              </div>
-                              <div>
-                              <DisplayVaultInformationMap vault_info={exchangeBoothVaultsMap}></DisplayVaultInformationMap>
                               </div>
                             </div>
                           </div>

@@ -6,6 +6,15 @@
   padding:2%;
 }
 
+header h1 {
+  font-size: 70px;
+  font-weight: 600;
+  background-image: conic-gradient(#553c9a, #ee4b2b, #00c2cb, #553c9a);
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
 .CenterFullScren {
   width: 100%;
   text-align: center;
