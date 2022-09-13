@@ -76,6 +76,7 @@ class DisplayMintInformation extends React.Component {
         rows.push(
           <tr key={i}>
             <td>{i}</td>
+            <td>{this.props.mint_info[i].alias}</td>
             <td>{this.props.mint_info[i].mint.toBase58()}</td>
             <td>{threeDotStringRepresentation(this.props.mint_info[i].admin.publicKey.toBase58())}</td>
             <td>{threeDotStringRepresentation(this.props.mint_info[i].admin_token_account_address.address.toBase58())}</td>
@@ -90,6 +91,7 @@ class DisplayMintInformation extends React.Component {
           <thead>
               <tr>
                 <th>index</th>
+                <th>Alias</th>
                 <th>Mint</th>
                 <th>Admin Public Key</th>
                 <th>ATA</th>
@@ -218,6 +220,8 @@ function App() {
   const [toMintInformation, setToMintInformation] = useState([]);
   const [exchangeBoothVaultsMap, setExchangeBoothVaultsMap] = useState(new Map());
   const [createdAccountsMap, setCreatedAccountsMap] = useState(new Map());
+  const [aliasToMintMap, setAliasToMintMap] = useState(new Map());
+
   const updateMap = (k,v) => {
     setCreatedAccountsMap(
       new Map(createdAccountsMap.set(k,v))
@@ -227,6 +231,12 @@ function App() {
   const updateExchangeBoothVaultsMap = (k,v) => {
     setExchangeBoothVaultsMap(
       new Map(exchangeBoothVaultsMap.set(k,v))
+    );
+  }
+
+  const updateAliasToMintMap = (k,v) => {
+    setAliasToMintMap(
+      new Map(aliasToMintMap.set(k,v))
     );
   }
 
@@ -272,7 +282,9 @@ function App() {
     give_myself_mint: "",
     give_myself_amount: "",
     bootstrap_vault: "",
-    mint_to_bootstrap_into_account: ""
+    mint_to_bootstrap_into_account: "",
+    exchange_booth_rate: "1:2",
+    exchange_booth_fee: "0.2"
   })
 
   const wallet = useWallet();
@@ -323,19 +335,24 @@ function App() {
    
     const provider = await getProvider()
     const program = new Program(idl, programID, provider);
+
+    const firstMint = getMintFromAlias(state.first_mint_exchange_booth)
+    const secondMint = getMintFromAlias(state.second_mint_exchange_booth)
     
     console.log("program_id=" +programID)
+
+    console.log("first one=" + firstMint)
+    console.log("second one=" + secondMint)
+    console.log("rate=" + state.exchange_booth_rate)
+    console.log("fee=" + state.exchange_booth_fee)
 
     if (exchangeBoothVaultsMap.size < 2) {
       console.log('not enough mints')
       return
     }
 
-    console.log("first one=" + state['first_mint_exchange_booth'])
-    console.log("second one=" + state['second_mint_exchange_booth'])
-
-    const mintA = exchangeBoothVaultsMap.get(state['first_mint_exchange_booth'])
-    const mintB = exchangeBoothVaultsMap.get(state['second_mint_exchange_booth'])
+    const mintA = exchangeBoothVaultsMap.get(firstMint)
+    const mintB = exchangeBoothVaultsMap.get(secondMint)
 
 
     console.log("mint A=" + mintA)
@@ -373,7 +390,7 @@ function App() {
     
     console.log("adminPdaKey=" + adminPdaKey.toBase58())
 
-    let result = await program.rpc.create("1:2", "0.2", {
+    let result = await program.rpc.create(state.exchange_booth_rate, state.exchange_booth_fee, {
       accounts: {
         payer: provider.wallet.publicKey,
         admin: provider.wallet.publicKey,
@@ -429,14 +446,18 @@ function App() {
   async function give_myself_amount() {
     setLoading(true)
 
+    const giveMyselfMint = getMintFromAlias(state.give_myself_mint)
+
+    console.log("give myself the following mint=" + giveMyselfMint)
+
     for(let i = 0; i < toMintInformation.length ; i++) {
-      if (toMintInformation[i].mint.toBase58() == state['give_myself_mint']) {
+      if (toMintInformation[i].mint.toBase58() == giveMyselfMint) {
         const mint = 
         await do_giving(
           toMintInformation[i].mint,
           toMintInformation[i].admin,
           toMintInformation[i].admin_token_account_address,
-          state['give_myself_amount']
+          state.give_myself_amount
         )
 
         const provider = await getProvider()
@@ -461,10 +482,12 @@ function App() {
 
     const provider = await getProvider()
     const program = new Program(idl, programID, provider);
-    const connection = provider.connection;
 
-    const firstMint = exchangeBoothVaultsMap.get(state['deposit_mint_a'])
-    const secondMint = exchangeBoothVaultsMap.get(state['deposit_mint_b'])
+    const firstMintString = getMintFromAlias(state['deposit_mint_a'])
+    const secondMintString = getMintFromAlias(state['deposit_mint_b'])
+
+    const firstMint = exchangeBoothVaultsMap.get(firstMintString)
+    const secondMint = exchangeBoothVaultsMap.get(secondMintString)
 
     console.log("depositToVaults=" + firstMint.mint.toBase58())
     console.log("depositToVaults=" + secondMint.mint.toBase58())
@@ -505,8 +528,8 @@ function App() {
     );
 
     let result = await program.rpc.deposit(
-        new BN(state['deposit_mint_a_amount'], 10), 
-        new BN(state['deposit_mint_b_amount'], 10)
+        new BN(state.deposit_mint_a_amount, 10), 
+        new BN(state.deposit_mint_b_amount, 10)
       , { accounts:{
       payer: provider.wallet.publicKey,
       systemProgram: SystemProgram.programId,
@@ -571,10 +594,14 @@ function App() {
   async function createNewAccountWithMintInIt() {
     setLoading(true)
 
+    const mintToBootstrap = getMintFromAlias(state.mint_to_bootstrap)
+
+    console.log("Adding the following mint=" + mintToBootstrap)
+
     for(let i = 0; i < toMintInformation.length ; i++) {
-      if (toMintInformation[i].mint.toBase58() == state['mint_to_bootstrap']) {
+      if (toMintInformation[i].mint.toBase58() == mintToBootstrap) {
         
-        const checkForKey = state['mint_to_bootstrap_into_account']
+        const checkForKey = state.mint_to_bootstrap_into_account
 
         let currentRecord = createdAccountsMap.get(checkForKey)
         let newWallet = Keypair.generate();
@@ -598,7 +625,7 @@ function App() {
           toMintInformation[i].admin_token_account_address.address,
           newTokenAccountATA.address,
           toMintInformation[i].admin.publicKey,
-          state['mint_to_bootstrap_amount']
+          state.mint_to_bootstrap_amount
         );
       
         const newAmountForToken = await getAmount(connection, newTokenAccountATA.address)
@@ -621,11 +648,11 @@ function App() {
 
         let originalMints = createdAccountsMap.get(key).mints
 
-        if(originalMints.get(state['mint_to_bootstrap']) == undefined) {
+        if(originalMints.get(mintToBootstrap) == undefined) {
           console.log("DO THE SET")
-          originalMints.set(state['mint_to_bootstrap'], 
+          originalMints.set(mintToBootstrap, 
           {
-            'mint': threeDotStringRepresentation(state['mint_to_bootstrap']),
+            'mint': threeDotStringRepresentation(mintToBootstrap),
             'full_mint': toMintInformation[i].mint,
             'amount': String(newAmountForToken),
             'ata': newTokenAccountATA
@@ -725,6 +752,7 @@ function App() {
     setToMintInformation(current => [
       ...current,
       {
+        'alias': state.mint_alias,
         'mint': mintA,
         'admin': fromWallet,
         'admin_token_account_address': fromTokenAccount,
@@ -732,6 +760,9 @@ function App() {
         'current_amount_in_origin_admin_ata': currentAmountInAdminAta,
       }
     ])
+
+    updateAliasToMintMap(state.mint_alias, mintA.toBase58())
+
 
     setBodyAndShow("New Mint Created")
     setRefresh(!refresh)
@@ -749,10 +780,10 @@ function handleGenericChange(evt) {
 async function swapTokens(evt) {
 
   setLoading(true)
-  const fromMint = state['swap_from_mint']
-  const toMint = state['swap_to_mint']
-  const fromAmount = state['swap_from_amount']
-  const account = state['swap_account']
+  const fromMint = getMintFromAlias(state.swap_from_mint)
+  const toMint = getMintFromAlias(state.swap_to_mint)
+  const fromAmount = state.swap_from_amount
+  const account = state.swap_account
 
   const sourceAccount = createdAccountsMap.get(account)
 
@@ -866,6 +897,15 @@ async function refreshVaults() {
     } 
 }
 
+function getMintFromAlias(alias) {
+  // PublicKey is 44 characters
+  if(alias.length >= 40) {
+    return alias
+  } else {
+    return aliasToMintMap.get(alias)
+  }
+}
+
 async function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -915,6 +955,9 @@ async function sleep(ms) {
                 </div>
 
                 <div>
+                  <div>
+                    Auction House
+                  </div>
                 <Tab.Container id="left-tabs-example" defaultActiveKey="first">
                   <Row>
                     <Col sm={3}>
@@ -950,6 +993,14 @@ async function sleep(ms) {
                         </div>
                         <div className="CenterFullScren">
                           <div className="JustAForm">
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Alias
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" name="mint_alias" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
                             <div className="SomeSpace">
                               <span className="SomeSpace">
                                 Total to Mint
@@ -1034,6 +1085,22 @@ async function sleep(ms) {
                               </span>
                               <span className="SomeSpace">
                                 <input type="text" name="second_mint_exchange_booth" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Fee for booth
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text"  value={state.exchange_booth_fee} name="exchange_booth_fee" onChange={handleGenericChange}/>
+                              </span>
+                            </div>
+                            <div className="SomeSpace">
+                              <span className="SomeSpace">
+                                Exchange Rate
+                              </span>
+                              <span className="SomeSpace">
+                                <input type="text" value={state.exchange_booth_rate} name="exchange_booth_rate" onChange={handleGenericChange}/>
                               </span>
                             </div>
                             <div className="SomeSpace">
