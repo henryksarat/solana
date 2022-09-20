@@ -22,6 +22,7 @@ import Nav from 'react-bootstrap/Nav';
 import Row from 'react-bootstrap/Row';
 import Tab from 'react-bootstrap/Tab';
 import Spinner from 'react-bootstrap/Spinner';
+import Badge from 'react-bootstrap/Badge';
 
 import {
   createMint,
@@ -985,10 +986,16 @@ async function sleep(ms) {
                     <Col sm={3}>
                       <Nav variant="pills" className="flex-column">
                         <Nav.Item>
-                          <Nav.Link eventKey="first">Mints</Nav.Link>
+                          <Nav.Link eventKey="first">
+                            <span class="TabText">Mints</span>
+                          <Badge pill bg="dark">{toMintInformation.length}</Badge>
+                          </Nav.Link>
                         </Nav.Item>
                         <Nav.Item>
-                          <Nav.Link eventKey="second">Accounts</Nav.Link>
+                          <Nav.Link eventKey="second">
+                            <span class="TabText">Accounts</span>
+                            <Badge pill bg="dark">{createdAccountsMap.size}</Badge>
+                          </Nav.Link>
                         </Nav.Item>
                         <Nav.Item>
                           <Nav.Link eventKey="third">Sample Smart Contract</Nav.Link>
@@ -997,7 +1004,10 @@ async function sleep(ms) {
                           <Nav.Link eventKey="fourth">Create Exchange Booth</Nav.Link>
                         </Nav.Item>
                         <Nav.Item>
-                          <Nav.Link eventKey="fifth">My Vaults</Nav.Link>
+                          <Nav.Link eventKey="fifth">
+                            <span class="TabText">My Vaults</span>
+                            <Badge pill bg="dark">{exchangeBoothVaultsMap.size}</Badge>
+                          </Nav.Link>
                         </Nav.Item>
                         <Nav.Item>
                           <Nav.Link eventKey="sixth">Vault Deposit</Nav.Link>
