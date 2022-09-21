@@ -23,6 +23,8 @@ import Row from 'react-bootstrap/Row';
 import Tab from 'react-bootstrap/Tab';
 import Spinner from 'react-bootstrap/Spinner';
 import Badge from 'react-bootstrap/Badge';
+import Tooltip from 'react-bootstrap/Tooltip';
+import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 
 import {
   createMint,
@@ -60,6 +62,21 @@ class DisplaySomething extends React.Component {
  }
 }
 
+class ShorthandWithToolTip extends React.Component {
+  render() {
+    return (
+    <OverlayTrigger
+      key={"overlaytrigger_" + this.props.long_version}
+      placement="right"
+      delay={{ show: 250, hide: 1500 }}
+      overlay={this.props.renderTooltip(this.props, this.props.long_version)}
+    >
+      <Button variant="light">{this.props.short_version}</Button>
+    </OverlayTrigger>
+    )
+  }
+}
+
 class DisplayMintInformation extends React.Component {
   render() {
       if(this.props.mint_info == null) {
@@ -77,14 +94,34 @@ class DisplayMintInformation extends React.Component {
         rows.push(
           <tr key={i}>
             <td>{this.props.mint_info[i].alias}</td>
-            <td>{threeDotStringRepresentation(this.props.mint_info[i].mint.toBase58())}</td>
-            <td>{threeDotStringRepresentation(this.props.mint_info[i].admin.publicKey.toBase58())}</td>
-            <td>{threeDotStringRepresentation(this.props.mint_info[i].admin_token_account_address.address.toBase58())}</td>
+            <td>    
+                <ShorthandWithToolTip 
+                  renderTooltip={this.props.renderTooltip} 
+                  short_version={threeDotStringRepresentation(this.props.mint_info[i].mint.toBase58())} 
+                  long_version={this.props.mint_info[i].mint.toBase58()}>
+                </ShorthandWithToolTip>
+            </td>
+            <td>    
+                <ShorthandWithToolTip 
+                  renderTooltip={this.props.renderTooltip} 
+                  short_version={threeDotStringRepresentation(this.props.mint_info[i].admin.publicKey.toBase58())} 
+                  long_version={this.props.mint_info[i].admin.publicKey.toBase58()}>
+                </ShorthandWithToolTip>
+            </td>
+            <td>    
+                <ShorthandWithToolTip 
+                  renderTooltip={this.props.renderTooltip} 
+                  short_version={threeDotStringRepresentation(this.props.mint_info[i].admin_token_account_address.address.toBase58())} 
+                  long_version={this.props.mint_info[i].admin_token_account_address.address.toBase58()}>
+                </ShorthandWithToolTip>
+            </td>
+     
             <td>{this.props.mint_info[i].amount_minted}</td>
             <td>{this.props.mint_info[i].current_amount_in_origin_admin_ata}</td>
           </tr>
           )
       }
+      
 
    return (
           <Table striped bordered hover size="sm">
@@ -95,7 +132,7 @@ class DisplayMintInformation extends React.Component {
                 <th>Admin Public Key</th>
                 <th>ATA</th>
                 <th>Minted Amount</th>
-                <th>Current Amount</th>
+                <th>Remaining Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -134,16 +171,36 @@ class DisplayVaultInformationMap extends React.Component {
             rows.push(
             <tr key={k}>
               <td>{this.props.alias_loopup(this.props.vault_info.get(k).mint.toBase58())}</td>
-              <td>{this.props.vault_info.get(k).mint.toBase58()}</td>
-              <td>{threeDotStringRepresentation(this.props.vault_info.get(k).ata.address.toBase58())}</td>
+              <td>
+                <ShorthandWithToolTip 
+                    renderTooltip={this.props.renderTooltip} 
+                    short_version={threeDotStringRepresentation(this.props.vault_info.get(k).mint.toBase58())} 
+                    long_version={this.props.vault_info.get(k).mint.toBase58()}>
+                </ShorthandWithToolTip>
+              </td>
+              <td>    
+                <ShorthandWithToolTip 
+                  renderTooltip={this.props.renderTooltip} 
+                  short_version={threeDotStringRepresentation(this.props.vault_info.get(k).ata.address.toBase58())} 
+                  long_version={this.props.vault_info.get(k).ata.address.toBase58()}>
+                </ShorthandWithToolTip>
+            </td>
               <td>{this.props.vault_info.get(k).current_amount}</td>
               <td>{this.props.vault_info.get(k).deposit_amount_in_booth}</td>
-              <td>{this.props.vault_info.get(k).pda == "NA" ? "NA" : threeDotStringRepresentation(this.props.vault_info.get(k).pda.toBase58())}</td>
+              <td>{
+                this.props.vault_info.get(k).pda == "NA" ? 
+                  "NA" : 
+                  <ShorthandWithToolTip 
+                    renderTooltip={this.props.renderTooltip} 
+                    short_version={threeDotStringRepresentation(this.props.vault_info.get(k).pda.toBase58())} 
+                    long_version={this.props.vault_info.get(k).pda.toBase58()}>
+                  </ShorthandWithToolTip>
+                }</td>
             </tr>
             )
         ))
       }
-
+      
    return (
           <Table striped bordered hover size="sm">
           <thead>
@@ -179,8 +236,6 @@ class DisplayCreatedAccounts extends React.Component {
       {
         [...this.props.accounts.keys()].map(k => (
           [...this.props.accounts.get(k).mints.keys()].map(v => (
-
-
             rows.push(
             <tr key={k + v}>
               <td>{this.props.accounts.get(k).account.publicKey.toBase58()}</td>
@@ -935,6 +990,26 @@ async function sleep(ms) {
     setNotificationBody(message)
   }
 
+  const renderTooltip = (props, text) => (
+    // <Tooltip id="button-tooltip" {...props}>
+    //   Simple tooltip
+    // </Tooltip>
+      <div
+      {...props}
+      style={{
+        position: 'absolute',
+        backgroundColor: 'rgba(53, 56, 64, 0.85)',
+        padding: '2px 10px',
+        color: 'white',
+        borderRadius: 3,
+        ...props.style,
+      }}
+    >
+      {text}
+    </div>
+  );
+
+
   if (!wallet.connected) {
     /* If the user's wallet is not connected, display connect wallet button. */
     return (
@@ -1005,7 +1080,7 @@ async function sleep(ms) {
                         </Nav.Item>
                         <Nav.Item>
                           <Nav.Link eventKey="fifth">
-                            <span class="TabText">My Vaults</span>
+                            <span class="TabText">Vaults</span>
                             <Badge pill bg="dark">{exchangeBoothVaultsMap.size}</Badge>
                           </Nav.Link>
                         </Nav.Item>
@@ -1021,7 +1096,10 @@ async function sleep(ms) {
                       <Tab.Content>
                         <Tab.Pane eventKey="first">
                         <div>
-                          <DisplayMintInformation mint_info={toMintInformation}></DisplayMintInformation>
+                          <DisplayMintInformation 
+                          mint_info={toMintInformation}
+                          renderTooltip={(props, text)=>renderTooltip(props, text)}
+                          ></DisplayMintInformation>
                         </div>
                         <ColoredLine color="#00c2cb" />
                         <div className="CenterFullScren">
@@ -1060,7 +1138,10 @@ async function sleep(ms) {
                         <div className="CenterFullScren">
                           <div className="JustAForm">
                             <div>
-                              <DisplayCreatedAccounts accounts={createdAccountsMap}></DisplayCreatedAccounts>
+                              <DisplayCreatedAccounts 
+                                accounts={createdAccountsMap}
+                                renderTooltip={(props, text)=>renderTooltip(props, text)}>
+                              </DisplayCreatedAccounts>
                             </div>
                             <ColoredLine color="#00c2cb" />
                             <div className="SomeSpace">
@@ -1150,7 +1231,9 @@ async function sleep(ms) {
                             <div>
                               <DisplayVaultInformationMap 
                                 vault_info={exchangeBoothVaultsMap}
-                                alias_loopup={(mint_base58) => getAliasFromMintPublicKey(mint_base58)}>
+                                alias_loopup={(mint_base58) => getAliasFromMintPublicKey(mint_base58)}
+                                renderTooltip={(props, text)=>renderTooltip(props, text)}
+                              >
                               </DisplayVaultInformationMap>
                             </div>
                             <ColoredLine color="#00c2cb" />
