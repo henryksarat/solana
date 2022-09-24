@@ -9,13 +9,13 @@ The project is built using the Anchor framework and Type Script.
 
 The project allows an admin to initilize the Exchange Booth Smart Contract where someone is able to exchange two different tokens based on a set exchange rate.
 
-Mint Creation:
+Mint Creation (tooltip displayed in screenshot for easier address reading):
 ![Exchange Booth](https://github.com/henryksarat/solana/blob/main/images/exchange_booth_mints.png)
 
-Account Creation for Mint:
+Account Creation with certain Mint:
 ![Exchange Booth](https://github.com/henryksarat/solana/blob/main/images/exchange_booth_accounts.png)
 
-Vaults for the Admin to use in the Exchange Booth:
+Vaults for the Admin to use in the Exchange Booth (Notice PDA created for what will be exchanged):
 ![Exchange Booth](https://github.com/henryksarat/solana/blob/main/images/exchange_booth_vaults.png)
 
 Creation of the Exchange Booth between mints, with fee and rate:
