@@ -3,13 +3,23 @@
 # Folders (Each one has a Read Me)
 
 # booth_exchange
-![Exchange Booth](https://github.com/henryksarat/solana/blob/main/images/exchange_booth_vault_home.png)
-
 This folder contains code for the Exchange Booth Solana Bootcamp milestone project. This is the Youtube series: https://www.youtube.com/watch?v=O0uhZEfVPt8&list=PLilwLeBwGuK7Z2dXft_pmLZ675fuPgkA0&index=1
 
 The project is built using the Anchor framework and Type Script. 
 
 The project allows an admin to initilize the Exchange Booth Smart Contract where someone is able to exchange two different tokens based on a set exchange rate.
+
+Mint Creation:
+![Exchange Booth](https://github.com/henryksarat/solana/blob/main/images/exchange_booth_mints.png)
+
+Account Creation for Mint:
+![Exchange Booth](https://github.com/henryksarat/solana/blob/main/images/exchange_booth_accounts.png)
+
+Vaults for the Admin to use in the Exchange Booth:
+![Exchange Booth](https://github.com/henryksarat/solana/blob/main/images/exchange_booth_vaults.png)
+
+Creation of the Exchange Booth between mints, with fee and rate:
+![Exchange Booth](https://github.com/henryksarat/solana/blob/main/images/exchange_booth_created_exchange_booths.png)
 
 # echo
 This folder contains code for the following specifiction: https://github.com/henryksarat/solana/blob/main/echo/Echo_Program_Specification.pdf

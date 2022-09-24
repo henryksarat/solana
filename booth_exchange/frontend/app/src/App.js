@@ -79,7 +79,7 @@ class ShorthandWithToolTip extends React.Component {
 
 class DisplayMintInformation extends React.Component {
   render() {
-      if(this.props.mint_info == null) {
+      if(this.props.mint_info.length == 0) {
         return ( 
           <label>
             No mint created yet 
@@ -144,6 +144,48 @@ class DisplayMintInformation extends React.Component {
  }
 }
 
+class DisplayExchangeBooths extends React.Component {
+  render() {
+      if(this.props.exchange_booth_info.length == 0) {
+        return ( 
+          <label>
+            No Exchange Booths Created Yet
+        </label>
+        )
+      }
+    
+      var rows = []
+  
+      for(let i = 0; i < this.props.exchange_booth_info.length ; i++) {
+        rows.push(
+          <tr key={"exchange_booth_display_" + i}>
+            <td>{this.props.exchange_booth_info[i].alias_mint_a}</td>
+            <td>{this.props.exchange_booth_info[i].alias_mint_b}</td>
+            <td>{parseFloat(this.props.exchange_booth_info[i].fee).toFixed(2)}</td>
+            <td>{this.props.exchange_booth_info[i].rate}</td>
+          </tr>
+          )
+      }
+      
+   return (
+          <Table striped bordered hover size="sm">
+          <thead>
+              <tr>
+                <th>From Mint</th>
+                <th>To Mint</th>
+                <th>Fee</th>
+                <th>Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows}
+            </tbody>
+            
+          </Table>
+   );
+ }
+}
+
 function threeDotStringRepresentation(item) {
   if(item.length <= 5) {
     return item
@@ -157,7 +199,7 @@ function threeDotStringRepresentation(item) {
 
 class DisplayVaultInformationMap extends React.Component {
   render() {    
-      if(this.props.vault_info == null) {
+      if(this.props.vault_info.size == 0) {
         return ( 
           <label>
             No vaults created yet
@@ -224,7 +266,7 @@ class DisplayVaultInformationMap extends React.Component {
 
 class DisplayCreatedAccounts extends React.Component {
   render() {    
-      if(this.props.accounts == null || this.props.accounts.length == 0) {
+      if(this.props.accounts.size == 0) {
         return ( 
           <label>
             No accounts created yet
@@ -239,7 +281,7 @@ class DisplayCreatedAccounts extends React.Component {
             rows.push(
             <tr key={k + v}>
               <td>{this.props.accounts.get(k).account.publicKey.toBase58()}</td>
-              <td>{this.props.accounts.get(k).mints.get(v).mint}</td>
+              <td>{this.props.accounts.get(k).mints.get(v).alias}</td>
               <td>{this.props.accounts.get(k).mints.get(v).amount}</td>
             </tr>
             )
@@ -281,6 +323,7 @@ function App() {
   const [savedMessage, setSavedMessage] = useState(null);
   
   const [toMintInformation, setToMintInformation] = useState([]);
+  const [exchangeBooth, setExchangeBooth] = useState([]);
   const [exchangeBoothVaultsMap, setExchangeBoothVaultsMap] = useState(new Map());
   const [createdAccountsMap, setCreatedAccountsMap] = useState(new Map());
   const [aliasToMintMap, setAliasToMintMap] = useState(new Map());
@@ -495,6 +538,20 @@ function App() {
     console.log("result = " + JSON.stringify(result))
     console.log("program_id="+programID)
     console.log("pda key="+adminPdaKey)
+
+    const currentExchangeBooth = await program.account.exchangeBooth.fetch(adminPdaKey);
+
+    setExchangeBooth(current => [
+      ...current,
+      {
+        'alias_mint_a': getAliasFromMintPublicKey(currentExchangeBooth.mintA.toString()),
+        'alias_mint_b': getAliasFromMintPublicKey(currentExchangeBooth.mintB.toString()),
+        'mint_a': currentExchangeBooth.mintA.toString(),
+        'mint_b': currentExchangeBooth.mintB.toString(),
+        'fee': currentExchangeBooth.fee.toString(),
+        'rate': currentExchangeBooth.oracle.toString()
+      }
+    ])
   }
 
   const is_loading = () => {
@@ -708,7 +765,6 @@ function App() {
           ) 
         }
 
-
         let originalMints = createdAccountsMap.get(key).mints
 
         if(originalMints.get(mintToBootstrap) == undefined) {
@@ -718,7 +774,8 @@ function App() {
             'mint': threeDotStringRepresentation(mintToBootstrap),
             'full_mint': toMintInformation[i].mint,
             'amount': String(newAmountForToken),
-            'ata': newTokenAccountATA
+            'ata': newTokenAccountATA,
+            'alias': getAliasFromMintPublicKey(mintToBootstrap)
           })
 
           updateMap(key, 
@@ -925,6 +982,7 @@ async function swapTokens(evt) {
   });
 
   console.log('done doing swap=' + result)
+  
   refreshAll()
   setLoading(false)
 }
@@ -1076,7 +1134,10 @@ async function sleep(ms) {
                           <Nav.Link eventKey="third">Sample Smart Contract</Nav.Link>
                         </Nav.Item>
                         <Nav.Item>
-                          <Nav.Link eventKey="fourth">Create Exchange Booth</Nav.Link>
+                          <Nav.Link eventKey="fourth">
+                            <span class="TabText">Create Exchange Booth</span>
+                            <Badge pill bg="dark">{exchangeBooth.length}</Badge>
+                          </Nav.Link>
                         </Nav.Item>
                         <Nav.Item>
                           <Nav.Link eventKey="fifth">
@@ -1187,6 +1248,11 @@ async function sleep(ms) {
                         <Tab.Pane eventKey="fourth">
                         <div className="CenterFullScren">
                           <div className="JustAForm">
+                            <div>
+                              <DisplayExchangeBooths exchange_booth_info={exchangeBooth}>
+                              </DisplayExchangeBooths>
+                            </div>
+                            <ColoredLine color="#00c2cb" />
                             <div className="SomeSpace">
                               <span className="SomeSpace">
                                 Mint A
