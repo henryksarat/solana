@@ -97,22 +97,22 @@ class DisplayMintInformation extends React.Component {
             <td>    
                 <ShorthandWithToolTip 
                   renderTooltip={this.props.renderTooltip} 
-                  short_version={threeDotStringRepresentation(this.props.mint_info[i].mint.toBase58())} 
+                  short_version={threeDotStringRepresentation(this.props.mint_info[i].mint_base58)} 
                   long_version={this.props.mint_info[i].mint.toBase58()}>
                 </ShorthandWithToolTip>
             </td>
             <td>    
                 <ShorthandWithToolTip 
                   renderTooltip={this.props.renderTooltip} 
-                  short_version={threeDotStringRepresentation(this.props.mint_info[i].admin.publicKey.toBase58())} 
-                  long_version={this.props.mint_info[i].admin.publicKey.toBase58()}>
+                  short_version={threeDotStringRepresentation(this.props.mint_info[i].admin_public_key_base58)} 
+                  long_version={this.props.mint_info[i].admin_public_key_base58}>
                 </ShorthandWithToolTip>
             </td>
             <td>    
                 <ShorthandWithToolTip 
                   renderTooltip={this.props.renderTooltip} 
-                  short_version={threeDotStringRepresentation(this.props.mint_info[i].admin_token_account_address.address.toBase58())} 
-                  long_version={this.props.mint_info[i].admin_token_account_address.address.toBase58()}>
+                  short_version={threeDotStringRepresentation(this.props.mint_info[i].admin_token_account_address_address_base58)} 
+                  long_version={this.props.mint_info[i].admin_token_account_address_address_base58}>
                 </ShorthandWithToolTip>
             </td>
      
@@ -374,7 +374,7 @@ function App() {
       setRefresh(!refresh)
     }
 
-    executeUpdateOfAmounts().catch(console.error);
+    // executeUpdateOfAmounts().catch(console.error);
 
   }, [toMintInformation]);
 
@@ -571,7 +571,7 @@ function App() {
     console.log("give myself the following mint=" + giveMyselfMint)
 
     for(let i = 0; i < toMintInformation.length ; i++) {
-      if (toMintInformation[i].mint.toBase58() == giveMyselfMint) {
+      if (toMintInformation[i].mint_base58 == giveMyselfMint) {
         const mint = 
         await do_giving(
           toMintInformation[i].mint,
@@ -822,14 +822,11 @@ function App() {
     }
   }
 
-  async function createMintHenryk() {    
+  async function createMintFromState() {    
     setLoading(true)
-    const provider = await getProvider()
-    /* create the program interface combining the idl, program ID, and provider */
-    const program = new Program(idl, programID, provider);
-    
-    const connection = provider.connection;
 
+    const provider = await getProvider()
+    const connection = provider.connection;
     const fromWallet = Keypair.generate();
 
     const fromAirdropSignature = await connection.requestAirdrop(fromWallet.publicKey, 2*LAMPORTS_PER_SOL);
@@ -837,6 +834,39 @@ function App() {
     console.log("fromAirdropSignature="+fromAirdropSignature)
     console.log("result="+result)
 
+    await createMintWithParams(
+      fromWallet,
+      state.to_mint_amount, 
+      state.alias, 
+      state.bootstrap_vault
+    )
+
+    setBodyAndShow("New Mint Created")
+    setRefresh(!refresh)
+    setLoading(false)
+  }
+
+  async function bootStrap() {
+    const provider = await getProvider()
+    const connection = provider.connection;
+    const fromWallet = Keypair.generate();
+
+    const fromAirdropSignature = await connection.requestAirdrop(fromWallet.publicKey, 2*LAMPORTS_PER_SOL);
+    const result = await connection.confirmTransaction(fromAirdropSignature);
+    console.log("fromAirdropSignature="+fromAirdropSignature)
+    console.log("result="+result)
+
+    await createMintWithParams(fromWallet, 1000, 'ICE', 100)
+    await createMintWithParams(fromWallet, 10000, 'WHEAT', 1000)
+    await createMintWithParams(fromWallet, 20000, 'STONE', 3000)
+    await createMintWithParams(fromWallet, 2500, 'WATER', 340)
+  }
+
+  async function createMintWithParams(fromWallet, to_mint_amount, alias, bootstrap_vault) {
+    const provider = await getProvider()
+    const connection = provider.connection;
+
+    console.log("attempt")
     let mintA = await createMint(
       connection,
       fromWallet,
@@ -844,8 +874,7 @@ function App() {
       null,
       9, // 9 decimals
     );
-
-
+  
     let fromTokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
       fromWallet,
@@ -859,7 +888,7 @@ function App() {
       mintA,
       fromTokenAccount.address,
       fromWallet.publicKey,
-      state['to_mint_amount'],
+      to_mint_amount,
       [fromWallet]
     );
 		
@@ -867,27 +896,38 @@ function App() {
     
     let currentAmountInAdminAta = String(await getAmount(connection, fromTokenAccount.address))
 
-    await do_giving(mintA, fromWallet, fromTokenAccount, state['bootstrap_vault'])
+    await do_giving(mintA, fromWallet, fromTokenAccount, bootstrap_vault)
 
+    console.log("will set mint")
     setToMintInformation(current => [
       ...current,
       {
-        'alias': state.mint_alias,
+        'alias': alias,
         'mint': mintA,
         'admin': fromWallet,
+        'admin_public_key_base58': fromWallet.publicKey.toBase58(),
         'admin_token_account_address': fromTokenAccount,
+        'admin_token_account_address_address_base58': fromTokenAccount.address.toBase58(),
+        'mint_base58': mintA.toBase58(),
         'amount_minted': originalMintAmount,
         'current_amount_in_origin_admin_ata': currentAmountInAdminAta,
       }
     ])
 
-    updateAliasToMintMap(state.mint_alias, mintA.toBase58())
-
-
-    setBodyAndShow("New Mint Created")
-    setRefresh(!refresh)
-    setLoading(false)
+    updateAliasToMintMap(alias, mintA.toBase58())
   }
+
+
+
+
+
+
+
+
+
+
+
+
 
 function handleGenericChange(evt) {
   const value = evt.target.value;
@@ -1190,7 +1230,10 @@ async function sleep(ms) {
                               </span>
                             </div>
                             <div className="SomeSpace">
-                              <Button onClick={createMintHenryk}>Create mint</Button>
+                              <Button onClick={createMintFromState}>Create mint</Button>
+                            </div>
+                            <div className="SomeSpace">
+                              <Button variant="warning" onClick={bootStrap}>Bootstrap Environment</Button>
                             </div>
                           </div>
                         </div>
