@@ -354,6 +354,8 @@ function App() {
 
   const [show, setShow] = useState(false);
 
+  const [bootStrapAccounts, setBootstrapAccounts] = useState(false)
+
   useEffect(() => {
     const executeUpdateOfAmounts = async () => {
       console.log("in use effect")
@@ -370,13 +372,21 @@ function App() {
 
         toMintInformation[i].current_amount_in_origin_admin_ata = currentAmountInAdminAta
       }
-
+      
       setRefresh(!refresh)
     }
 
-    // executeUpdateOfAmounts().catch(console.error);
+    executeUpdateOfAmounts().catch(console.error);
 
-  }, [toMintInformation]);
+    console.log('bootStrapAccounts=' + bootStrapAccounts)
+    if (bootStrapAccounts) {
+      console.log('bootStrapAccounts=' + bootStrapAccounts)
+      createNewAccountWithMintInItWithParams('WHEAT', undefined, 10)
+      createNewAccountWithMintInItWithParams('STONE', undefined, 10)
+      createNewAccountWithMintInItWithParams('WATER', undefined, 10)     
+    }
+
+  }, [toMintInformation, bootStrapAccounts]);
 
   const [state, setState] = React.useState({
     first_mint_exchange_booth: "",
@@ -714,14 +724,30 @@ function App() {
   async function createNewAccountWithMintInIt() {
     setLoading(true)
 
-    const mintToBootstrap = getMintFromAlias(state.mint_to_bootstrap)
+    createNewAccountWithMintInItWithParams(
+      state.mint_to_bootstrap, 
+      state.mint_to_bootstrap_into_account,
+      state.mint_to_bootstrap_amount
+    )
+
+    setRefresh(!refresh)
+    setLoading(false)
+  }
+
+  async function createNewAccountWithMintInItWithParams(
+    mint_to_bootstrap, 
+    mint_to_bootstrap_into_account,
+    mint_to_bootstrap_amount
+  ) {
+    const mintToBootstrap = getMintFromAlias(mint_to_bootstrap)
 
     console.log("Adding the following mint=" + mintToBootstrap)
-
+    console.log("length of mint=" + toMintInformation)
+    console.log("length of alias map=" + aliasToMintMap.size)
     for(let i = 0; i < toMintInformation.length ; i++) {
       if (toMintInformation[i].mint.toBase58() == mintToBootstrap) {
         
-        const checkForKey = state.mint_to_bootstrap_into_account
+        const checkForKey = mint_to_bootstrap_into_account
 
         let currentRecord = createdAccountsMap.get(checkForKey)
         let newWallet = Keypair.generate();
@@ -745,12 +771,16 @@ function App() {
           toMintInformation[i].admin_token_account_address.address,
           newTokenAccountATA.address,
           toMintInformation[i].admin.publicKey,
-          state.mint_to_bootstrap_amount
+          mint_to_bootstrap_amount
         );
       
         const newAmountForToken = await getAmount(connection, newTokenAccountATA.address)
 
-        let newAmountAdminAta = String(await getAmount(connection, toMintInformation[i].admin_token_account_address.address))
+        let newAmountAdminAta = String(
+          await getAmount(
+            connection, toMintInformation[i].admin_token_account_address.address
+            )
+          )
 
         toMintInformation[i].current_amount_in_origin_admin_ata = newAmountAdminAta
 
@@ -790,10 +820,8 @@ function App() {
         }
 
         setBodyAndShow("New account created: " + threeDotStringRepresentation(newWallet.publicKey))
-        setRefresh(!refresh)
-        setLoading(false)
 
-        return
+        break
       }
     }
   }
@@ -847,26 +875,30 @@ function App() {
   }
 
   async function bootStrap() {
-    const provider = await getProvider()
-    const connection = provider.connection;
-    const fromWallet = Keypair.generate();
+    const executeUpdateOfAmounts = async () => {
+      const provider = await getProvider()
+      const connection = provider.connection;
+      const fromWallet = Keypair.generate();
 
-    const fromAirdropSignature = await connection.requestAirdrop(fromWallet.publicKey, 2*LAMPORTS_PER_SOL);
-    const result = await connection.confirmTransaction(fromAirdropSignature);
-    console.log("fromAirdropSignature="+fromAirdropSignature)
-    console.log("result="+result)
+      const fromAirdropSignature = await connection.requestAirdrop(fromWallet.publicKey, 2*LAMPORTS_PER_SOL);
+      const result = await connection.confirmTransaction(fromAirdropSignature);
+      console.log("fromAirdropSignature="+fromAirdropSignature)
+      console.log("result="+result)
 
-    await createMintWithParams(fromWallet, 1000, 'ICE', 100)
-    await createMintWithParams(fromWallet, 10000, 'WHEAT', 1000)
-    await createMintWithParams(fromWallet, 20000, 'STONE', 3000)
-    await createMintWithParams(fromWallet, 2500, 'WATER', 340)
+      await createMintWithParams(fromWallet, 1000, 'ICE', 100)
+      await createMintWithParams(fromWallet, 10000, 'WHEAT', 1000)
+      await createMintWithParams(fromWallet, 20000, 'STONE', 3000)
+      await createMintWithParams(fromWallet, 2500, 'WATER', 340)
+    }
+    await executeUpdateOfAmounts().catch(console.error);
+
+    setBootstrapAccounts(true)
   }
 
   async function createMintWithParams(fromWallet, to_mint_amount, alias, bootstrap_vault) {
     const provider = await getProvider()
     const connection = provider.connection;
 
-    console.log("attempt")
     let mintA = await createMint(
       connection,
       fromWallet,
@@ -899,7 +931,7 @@ function App() {
     await do_giving(mintA, fromWallet, fromTokenAccount, bootstrap_vault)
 
     console.log("will set mint")
-    setToMintInformation(current => [
+    await setToMintInformation(current => [
       ...current,
       {
         'alias': alias,
