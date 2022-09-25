@@ -35,6 +35,7 @@ import {
   getAccount,
   transfer,
 } from "@solana/spl-token"; 
+import { set } from "@project-serum/anchor/dist/cjs/utils/features";
 require('@solana/wallet-adapter-react-ui/styles.css');
 const BN = require("bn.js");
 
@@ -356,10 +357,11 @@ function App() {
 
   const [bootStrapAccounts, setBootstrapAccounts] = useState(false)
 
+  const [bootStrapExchangeBooth, setBootStrapExchangeBooth] = useState(false)
+  
+
   useEffect(() => {
     const executeUpdateOfAmounts = async () => {
-      console.log("in use effect")
-
       const provider = await getProvider()
       const connection = provider.connection;
 
@@ -378,15 +380,21 @@ function App() {
 
     executeUpdateOfAmounts().catch(console.error);
 
-    console.log('bootStrapAccounts=' + bootStrapAccounts)
     if (bootStrapAccounts) {
-      console.log('bootStrapAccounts=' + bootStrapAccounts)
       createNewAccountWithMintInItWithParams('WHEAT', undefined, 10)
       createNewAccountWithMintInItWithParams('STONE', undefined, 10)
-      createNewAccountWithMintInItWithParams('WATER', undefined, 10)     
+      createNewAccountWithMintInItWithParams('WATER', undefined, 10)   
     }
 
-  }, [toMintInformation, bootStrapAccounts]);
+    if (bootStrapExchangeBooth) {
+      //ICE 1000 total, 500 in Admin
+      //WHEAT 2000 total, 1000 in Admin
+      //STONE 3000 total, 1500 in Admin
+      //WATER 4000 total, 2000 in Admin
+
+      depositToVaultsWithParams('ICE', 'WATER', 200, 700)
+    }
+  }, [toMintInformation, bootStrapAccounts, bootStrapExchangeBooth]);
 
   const [state, setState] = React.useState({
     first_mint_exchange_booth: "",
@@ -448,19 +456,33 @@ function App() {
   }
 
   async function createExchangeBooth() {
-   
+    setLoading(true)
+    await createExchangeBoothWithParams(
+      state.first_mint_exchange_booth, 
+      state.second_mint_exchange_booth,
+      state.exchange_booth_rate,
+      state.exchange_booth_fee
+    )
+    setLoading(false)
+  }
+
+  async function createExchangeBoothWithParams(
+    first_mint_exchange_booth, 
+    second_mint_exchange_booth,
+    exchange_booth_rate,
+    exchange_booth_fee
+  ) {
     const provider = await getProvider()
     const program = new Program(idl, programID, provider);
-
-    const firstMint = getMintFromAlias(state.first_mint_exchange_booth)
-    const secondMint = getMintFromAlias(state.second_mint_exchange_booth)
+    const firstMint = getMintFromAlias(first_mint_exchange_booth)
+    const secondMint = getMintFromAlias(second_mint_exchange_booth)
     
     console.log("program_id=" +programID)
 
     console.log("first one=" + firstMint)
     console.log("second one=" + secondMint)
-    console.log("rate=" + state.exchange_booth_rate)
-    console.log("fee=" + state.exchange_booth_fee)
+    console.log("rate=" + exchange_booth_rate)
+    console.log("fee=" + exchange_booth_fee)
 
     if (exchangeBoothVaultsMap.size < 2) {
       console.log('not enough mints')
@@ -506,7 +528,7 @@ function App() {
     
     console.log("adminPdaKey=" + adminPdaKey.toBase58())
 
-    let result = await program.rpc.create(state.exchange_booth_rate, state.exchange_booth_fee, {
+    let result = await program.rpc.create(exchange_booth_rate, exchange_booth_fee, {
       accounts: {
         payer: provider.wallet.publicKey,
         admin: provider.wallet.publicKey,
@@ -607,14 +629,32 @@ function App() {
     refreshVaults()
     refreshAccounts()
   }
+
+
   async function depositToVaults() {
     setLoading(true)
 
+    depositToVaultsWithParams(
+      state.deposit_mint_a,
+      state.deposit_mint_b,
+      state.deposit_mint_a_amount,
+      state.deposit_mint_b_amount
+    )
+
+    setLoading(false)
+  }
+
+  async function depositToVaultsWithParams(
+    deposit_mint_a, 
+    deposit_mint_b, 
+    deposit_mint_a_amount,
+    deposit_mint_b_amount
+  ) {
     const provider = await getProvider()
     const program = new Program(idl, programID, provider);
 
-    const firstMintString = getMintFromAlias(state['deposit_mint_a'])
-    const secondMintString = getMintFromAlias(state['deposit_mint_b'])
+    const firstMintString = getMintFromAlias(deposit_mint_a)
+    const secondMintString = getMintFromAlias(deposit_mint_b)
 
     const firstMint = exchangeBoothVaultsMap.get(firstMintString)
     const secondMint = exchangeBoothVaultsMap.get(secondMintString)
@@ -657,9 +697,10 @@ function App() {
       provider.wallet.publicKey
     );
 
+    console.log("Execute deposit now")
     let result = await program.rpc.deposit(
-        new BN(state.deposit_mint_a_amount, 10), 
-        new BN(state.deposit_mint_b_amount, 10)
+        new BN(deposit_mint_a_amount, 10), 
+        new BN(deposit_mint_b_amount, 10)
       , { accounts:{
       payer: provider.wallet.publicKey,
       systemProgram: SystemProgram.programId,
@@ -678,8 +719,6 @@ function App() {
     console.log("Result from deposit=" + result)
    
     refreshVaults()
-
-    setLoading(false)
   }
 
   async function do_giving(mint, admin, admin_token_account_address, amount) {  
@@ -741,9 +780,6 @@ function App() {
   ) {
     const mintToBootstrap = getMintFromAlias(mint_to_bootstrap)
 
-    console.log("Adding the following mint=" + mintToBootstrap)
-    console.log("length of mint=" + toMintInformation)
-    console.log("length of alias map=" + aliasToMintMap.size)
     for(let i = 0; i < toMintInformation.length ; i++) {
       if (toMintInformation[i].mint.toBase58() == mintToBootstrap) {
         
@@ -885,14 +921,19 @@ function App() {
       console.log("fromAirdropSignature="+fromAirdropSignature)
       console.log("result="+result)
 
-      await createMintWithParams(fromWallet, 1000, 'ICE', 100)
-      await createMintWithParams(fromWallet, 10000, 'WHEAT', 1000)
-      await createMintWithParams(fromWallet, 20000, 'STONE', 3000)
-      await createMintWithParams(fromWallet, 2500, 'WATER', 340)
+      await createMintWithParams(fromWallet, 1000, 'ICE', 500)
+      await createMintWithParams(fromWallet, 2000, 'WHEAT', 1000)
+      await createMintWithParams(fromWallet, 3000, 'STONE', 1500)
+      await createMintWithParams(fromWallet, 4000, 'WATER', 2000)
     }
     await executeUpdateOfAmounts().catch(console.error);
 
     setBootstrapAccounts(true)
+  }
+
+  async function bootStrapSmartContract() {
+    await createExchangeBoothWithParams("ICE", "WATER", "1:2", "0.05")
+    setBootStrapExchangeBooth(true)
   }
 
   async function createMintWithParams(fromWallet, to_mint_amount, alias, bootstrap_vault) {
@@ -1266,6 +1307,9 @@ async function sleep(ms) {
                             </div>
                             <div className="SomeSpace">
                               <Button variant="warning" onClick={bootStrap}>Bootstrap Environment</Button>
+                            </div>
+                            <div className="SomeSpace">
+                              <Button variant="warning" onClick={bootStrapSmartContract}>Bootstrap Exchange Smart Contract</Button>
                             </div>
                           </div>
                         </div>
