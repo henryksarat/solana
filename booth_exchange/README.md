@@ -27,7 +27,7 @@
 ## Open Questions
 * How does decimal math work between mints? Solana is 9 decimals while serum is 6 decimals. I decided to only support exchange between mints of the same decimal value.
 
-## Two ways to run tests:
+## Two ways to run smart contract and integration tests:
 
 Option 1:
 ```
@@ -47,6 +47,12 @@ Option 2:
 ```
 cargo test-bpf --manifest-path=./Cargo.toml
 anchor test
+```
+
+## To run UI tests
+In the frontend/app directory run
+```
+npm test
 ```
 
 ## Build and copy idl
