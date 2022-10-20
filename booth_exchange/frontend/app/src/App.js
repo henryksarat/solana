@@ -27,6 +27,8 @@ import Badge from 'react-bootstrap/Badge';
 import DisplayMintInformation from './components/DisplayMintInformation'
 import ShorthandWithToolTip from './components/ShorthandWithToolTip'
 import DisplayExchangeBooths from './components/DisplayExchangeBooths'
+import DisplayCreatedAccounts from './components/DisplayCreatedAccounts'
+import DisplayVaultInformationMap from './components/DisplayVaultInformationMap'
 import {threeDotStringRepresentation} from './helpers/stringUtil'
 
 import {
@@ -62,117 +64,6 @@ class DisplaySomething extends React.Component {
        <label>
          <p>{this.props.message}</p>
        </label>
-   );
- }
-}
-
-class DisplayVaultInformationMap extends React.Component {
-  render() {    
-      if(this.props.vault_info.size == 0) {
-        return ( 
-          <label>
-            No vaults created yet
-        </label>
-        )
-      }
-      
-      var rows = []
-      {
-        [...this.props.vault_info.keys()].map(k => (
-            rows.push(
-            <tr key={k}>
-              <td>{this.props.alias_loopup(this.props.vault_info.get(k).mint.toBase58())}</td>
-              <td>
-                <ShorthandWithToolTip 
-                    renderTooltip={this.props.renderTooltip} 
-                    short_version={threeDotStringRepresentation(this.props.vault_info.get(k).mint.toBase58())} 
-                    long_version={this.props.vault_info.get(k).mint.toBase58()}>
-                </ShorthandWithToolTip>
-              </td>
-              <td>    
-                <ShorthandWithToolTip 
-                  renderTooltip={this.props.renderTooltip} 
-                  short_version={threeDotStringRepresentation(this.props.vault_info.get(k).ata.address.toBase58())} 
-                  long_version={this.props.vault_info.get(k).ata.address.toBase58()}>
-                </ShorthandWithToolTip>
-            </td>
-              <td>{this.props.vault_info.get(k).current_amount}</td>
-              <td>{this.props.vault_info.get(k).deposit_amount_in_booth}</td>
-              <td>{
-                this.props.vault_info.get(k).pda == "NA" ? 
-                  "NA" : 
-                  <ShorthandWithToolTip 
-                    renderTooltip={this.props.renderTooltip} 
-                    short_version={threeDotStringRepresentation(this.props.vault_info.get(k).pda.toBase58())} 
-                    long_version={this.props.vault_info.get(k).pda.toBase58()}>
-                  </ShorthandWithToolTip>
-                }</td>
-            </tr>
-            )
-        ))
-      }
-      
-   return (
-          <Table striped bordered hover size="sm">
-          <thead>
-              <tr>
-                <th>Alias</th>
-                <th>Mint</th>
-                <th>ATA</th>
-                <th>Current Amount</th>
-                <th>Deposit Amount in Exchange Booth</th>
-                <th>PDA</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows}
-            </tbody>
-            
-          </Table>
-   );
- }
-}
-
-class DisplayCreatedAccounts extends React.Component {
-  render() {    
-      if(this.props.accounts.size == 0) {
-        return ( 
-          <label>
-            No accounts created yet
-        </label>
-        )
-      }
-      
-      var rows = []
-      {
-        [...this.props.accounts.keys()].map(k => (
-          [...this.props.accounts.get(k).mints.keys()].map(v => (
-            rows.push(
-            <tr key={k + v}>
-              <td>{this.props.accounts.get(k).account.publicKey.toBase58()}</td>
-              <td>{this.props.accounts.get(k).mints.get(v).alias}</td>
-              <td>{this.props.accounts.get(k).mints.get(v).amount}</td>
-            </tr>
-            )
-
-
-          ))
-        ))
-      }
-   return (
-          <Table striped bordered hover size="sm">
-          <thead>
-              <tr>
-                <th>Account</th>
-                <th>Mint</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows}
-            </tbody>
-            
-          </Table>
    );
  }
 }
@@ -1186,9 +1077,9 @@ async function sleep(ms) {
                         <div className="CenterFullScren">
                           <div className="JustAForm">
                             <div>
-                              <DisplayCreatedAccounts 
+                              <DisplayCreatedAccounts
                                 accounts={createdAccountsMap}
-                                renderTooltip={(props, text)=>renderTooltip(props, text)}>
+                              >
                               </DisplayCreatedAccounts>
                             </div>
                             <ColoredLine color="#00c2cb" />

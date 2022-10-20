@@ -1,5 +1,7 @@
 import {threeDotStringRepresentation} from '../helpers/stringUtil'
 import ShorthandWithToolTip from './ShorthandWithToolTip'
+import Table from 'react-bootstrap/Table';
+import React from 'react';
 
 class DisplayVaultInformationMap extends React.Component {
     render() {    
