@@ -24,12 +24,13 @@ import Tab from 'react-bootstrap/Tab';
 import Spinner from 'react-bootstrap/Spinner';
 import Badge from 'react-bootstrap/Badge';
 
-import DisplayMintInformation from './components/DisplayMintInformation'
+import DisplayMintInformation from './components/mints/DisplayMintInformation'
 import ShorthandWithToolTip from './components/ShorthandWithToolTip'
 import DisplayExchangeBooths from './components/DisplayExchangeBooths'
-import DisplayCreatedAccounts from './components/DisplayCreatedAccounts'
+import DisplayCreatedAccounts from './components/accounts/DisplayCreatedAccounts'
 import DisplayVaultInformationMap from './components/DisplayVaultInformationMap'
 import {threeDotStringRepresentation} from './helpers/stringUtil'
+import {renderTooltip} from './helpers/uiHelperUtil'
 
 import {
   createMint,
@@ -919,26 +920,6 @@ async function sleep(ms) {
     setShow(true)
     setNotificationBody(message)
   }
-
-  const renderTooltip = (props, text) => (
-    // <Tooltip id="button-tooltip" {...props}>
-    //   Simple tooltip
-    // </Tooltip>
-      <div
-      {...props}
-      style={{
-        position: 'absolute',
-        backgroundColor: 'rgba(53, 56, 64, 0.85)',
-        padding: '2px 10px',
-        color: 'white',
-        borderRadius: 3,
-        ...props.style,
-      }}
-    >
-      {text}
-    </div>
-  );
-
 
   if (!wallet.connected) {
     /* If the user's wallet is not connected, display connect wallet button. */

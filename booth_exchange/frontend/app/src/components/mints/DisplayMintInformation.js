@@ -1,10 +1,8 @@
 import React from 'react';
-import Button from 'react-bootstrap/Button';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Table from 'react-bootstrap/Table';
-import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
-import {threeDotStringRepresentation} from '../helpers/stringUtil'
-import ShorthandWithToolTip from './ShorthandWithToolTip'
+import {threeDotStringRepresentation} from '../../helpers/stringUtil'
+import ShorthandWithToolTip from '../ShorthandWithToolTip'
 
 class DisplayMintInformation extends React.Component {
     render() {
@@ -27,7 +25,7 @@ class DisplayMintInformation extends React.Component {
                   <ShorthandWithToolTip 
                     renderTooltip={this.props.renderTooltip} 
                     short_version={threeDotStringRepresentation(this.props.mint_info[i].mint_base58)} 
-                    long_version={this.props.mint_info[i].mint.toBase58()}>
+                    long_version={this.props.mint_info[i].mint_base58}>
                   </ShorthandWithToolTip>
               </td>
               <td>    
