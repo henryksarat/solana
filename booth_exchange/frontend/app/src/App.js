@@ -31,6 +31,7 @@ import DisplayCreatedAccounts from './components/accounts/DisplayCreatedAccounts
 import DisplayVaultInformationMap from './components/DisplayVaultInformationMap'
 import {threeDotStringRepresentation} from './helpers/stringUtil'
 import {renderTooltip} from './helpers/uiHelperUtil'
+import {superSimple} from './helpers/smartContractHelper'
 
 import {
   createMint,
@@ -172,6 +173,7 @@ function App() {
   })
 
   const wallet = useWallet();
+
   async function getProvider() {
     const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
     // const network = "http://127.0.0.1:8899";
@@ -185,23 +187,16 @@ function App() {
 
   async function createCounter() {    
     const provider = await getProvider()
-    /* create the program interface combining the idl, program ID, and provider */
     const program = new Program(idl, programID, provider);
+
     try {
-      await program.rpc.initialize();
-      let result = await program.rpc.superSimple(state['to_save'], {
-        accounts: {
-          dataLocation: baseAccount.publicKey,
-          admin: provider.wallet.publicKey,
-          systemProgram: SystemProgram.programId,
-          rent: SYSVAR_RENT_PUBKEY,
-          tokenProgram: TOKEN_PROGRAM_ID
-        },
-        signers: [baseAccount]
-      });
-
-      const account = await program.account.superSimpleSave.fetch(baseAccount.publicKey);
-
+      const account = await superSimple(
+        state['to_save'], 
+        baseAccount.publicKey,
+        provider.wallet.publicKey,
+        baseAccount,
+        program
+      )
       setSavedMessage(account.message.toString());
 
       console.log('Anchor works')
